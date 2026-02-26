@@ -1,0 +1,434 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
+enum MovementType {
+  RECEIPT
+  SUPPLY
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT
+  CONSUMPTION
+  RESERVATION
+  RELEASE
+}
+
+enum BatchStatus {
+  OPEN
+  QUARANTINED
+  RELEASED
+  CONSUMED
+  EXPIRED
+}
+
+enum RequestType {
+  REPLENISH
+  URGENT
+  ONE_TIME
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  FULFILLED
+  CANCELLED
+  REJECTED
+}
+
+//////////////////////////////////////////////////////
+// CORE REFERENCE
+//////////////////////////////////////////////////////
+
+model City {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  state     String?
+  country   String?  @default("BR")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+
+  users         User[]
+  facilities    Facility[]
+  suppliers     Supplier[]
+  manufacturers Manufacturer[]
+
+  @@index([name])
+}
+
+//////////////////////////////////////////////////////
+// USERS / RBAC
+//////////////////////////////////////////////////////
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  fullName     String
+  email        String   @unique
+  cpf          String?  @unique
+  phone        String?
+  passwordHash String
+  isActive     Boolean  @default(true)
+
+  cityId String? @db.Uuid
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  requestsMade ItemRequest[] @relation("requests_made")
+  requestsResponsible ItemRequest[] @relation("requests_responsible")
+  requestStatusChanges ItemRequestStatusHistory[] @relation("request_status_changed_by")
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+
+  roles UserRole[]
+
+  @@index([email])
+}
+
+model Role {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  description String?
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id               String @id @default(uuid()) @db.Uuid
+  userId           String @db.Uuid
+  roleId           String @db.Uuid
+  scopeFacilityId  String? @db.Uuid
+
+  user     User     @relation(fields: [userId], references: [id])
+  role     Role     @relation(fields: [roleId], references: [id])
+  facility Facility? @relation("UserRoleFacility", fields: [scopeFacilityId], references: [id])
+
+  @@unique([userId, roleId, scopeFacilityId])
+}
+
+//////////////////////////////////////////////////////
+// FACILITIES
+//////////////////////////////////////////////////////
+
+model Facility {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  cnes        String? @unique
+  address     Json?
+  phone       String?
+  isActive    Boolean @default(true)
+
+  cityId String? @db.Uuid
+  city   City?   @relation(fields: [cityId], references: [id])
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+
+  locations Location[]
+  inventory InventoryEntry[]
+  movements StockMovement[]
+
+  userRoles UserRole[] @relation("UserRoleFacility")
+}
+
+model Location {
+  id          String  @id @default(uuid()) @db.Uuid
+  facilityId  String  @db.Uuid
+  code        String
+  name        String?
+  description String?
+  isActive    Boolean @default(true)
+
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+
+  inventory InventoryEntry[]
+  movements StockMovement[]
+  itemRequests ItemRequest[]
+
+  @@unique([facilityId, code])
+}
+
+//////////////////////////////////////////////////////
+// SUPPLY CHAIN
+//////////////////////////////////////////////////////
+
+model Manufacturer {
+  id        String @id @default(uuid()) @db.Uuid
+  name      String
+  cnpj      String?
+  contact   Json?
+  cityId    String? @db.Uuid
+  city      City? @relation(fields: [cityId], references: [id])
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  items Item[]
+}
+
+model Supplier {
+  id        String @id @default(uuid()) @db.Uuid
+  name      String
+  cnpj      String?
+  contact   Json?
+  cityId    String? @db.Uuid
+  city      City? @relation(fields: [cityId], references: [id])
+  defaultLeadTimeDays Int?
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+
+//////////////////////////////////////////////////////
+// ITEMS
+//////////////////////////////////////////////////////
+
+model ItemType {
+  id               String @id @default(uuid()) @db.Uuid
+  slug             String @unique
+  title            String
+  description      String?
+  attributesSchema Json?
+  createdAt        DateTime @default(now()) @db.Timestamptz
+
+  items Item[]
+}
+
+model Item {
+  id               String   @id @default(uuid()) @db.Uuid
+  identifier       String   @unique
+  gtin             String?  @unique
+  name             String
+  description      String?
+  itemTypeId       String?  @db.Uuid
+  itemType         ItemType? @relation(fields: [itemTypeId], references: [id])
+  unitOfMeasurement String
+  unitSize         Decimal? @db.Decimal(14,4)
+  isActive         Boolean  @default(true)
+  attributes       Json?
+
+  manufacturerId String? @db.Uuid
+  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [id])
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+  version Int @default(1)
+
+  batches Batch[]
+  inventory InventoryEntry[]
+  movements StockMovement[]
+  requests ItemRequest[]
+
+  @@index([name])
+}
+
+model Batch {
+  id                String @id @default(uuid()) @db.Uuid
+  itemId            String @db.Uuid
+  item              Item @relation(fields: [itemId], references: [id])
+  batchCode         String?
+  expirationDate    DateTime?
+  quantityReceived  Decimal @default("0") @db.Decimal(14,4)
+  quantityAvailable Decimal @default("0") @db.Decimal(14,4)
+  unitCost          Decimal? @db.Decimal(14,4)
+  status            BatchStatus @default(OPEN)
+  createdAt         DateTime @default(now()) @db.Timestamptz
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  inventory InventoryEntry[]
+  movements StockMovement[]
+  itemRequests ItemRequest[]
+
+  @@index([expirationDate])
+}
+
+//////////////////////////////////////////////////////
+// INVENTORY
+//////////////////////////////////////////////////////
+
+model InventoryEntry {
+  id               String @id @default(uuid()) @db.Uuid
+  itemId           String @db.Uuid
+  facilityId       String @db.Uuid
+  locationId       String? @db.Uuid
+  batchId          String? @db.Uuid
+
+  item      Item     @relation(fields: [itemId], references: [id])
+  facility  Facility @relation(fields: [facilityId], references: [id])
+  location  Location? @relation(fields: [locationId], references: [id])
+  batch     Batch?   @relation(fields: [batchId], references: [id])
+
+  quantityOnHand   Decimal @default("0") @db.Decimal(14,4)
+  quantityReserved Decimal @default("0") @db.Decimal(14,4)
+
+  lastTransactionAt DateTime? @db.Timestamptz
+
+  // Soft delete
+  isDeleted Boolean @default(false)
+  deletedAt DateTime? @db.Timestamptz
+  deletedBy String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime? @db.Timestamptz
+
+  @@unique([itemId, facilityId, batchId, locationId])
+  @@index([itemId, facilityId])
+}
+
+//////////////////////////////////////////////////////
+// MOVEMENTS (LEDGER)
+//////////////////////////////////////////////////////
+
+model StockMovement {
+  id           String       @id @default(uuid()) @db.Uuid
+  movementType MovementType
+  referenceId  String?      @db.Uuid
+
+  itemId     String @db.Uuid
+  facilityId String @db.Uuid
+  locationId String? @db.Uuid
+  batchId    String? @db.Uuid
+
+  item     Item     @relation(fields: [itemId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+  location Location? @relation(fields: [locationId], references: [id])
+  batch    Batch?   @relation(fields: [batchId], references: [id])
+
+  quantity    Decimal  @db.Decimal(14,4)
+  unitCost    Decimal? @db.Decimal(14,4)
+  performedBy String?  @db.Uuid
+  performedAt DateTime @default(now()) @db.Timestamptz
+  notes       String?
+
+  @@index([itemId, facilityId, performedAt])
+}
+
+//////////////////////////////////////////////////////
+// MATERIALIZED VIEW (READ MODEL)
+//////////////////////////////////////////////////////
+
+model VwStockBalance {
+  id         String  @id
+  itemId     String  @db.Uuid
+  facilityId String  @db.Uuid
+  batchId    String? @db.Uuid
+  qty        Decimal @db.Decimal(14,4)
+
+  @@map("vw_stock_balance_mat")
+}
+
+/// ===============================
+/// REQUESTS
+/// ===============================
+
+model ItemRequest {
+  id                   String    @id @default(uuid()) @db.Uuid
+  locationId           String?   @db.Uuid
+  location             Location? @relation(fields: [locationId], references: [id])
+
+  itemId               String    @db.Uuid
+  item                 Item      @relation(fields: [itemId], references: [id])
+
+  quantityNeeded       Decimal   @db.Decimal(14,4)
+  quantityCurrent      Decimal?  @db.Decimal(14,4) // quantidade atual no momento da requisição (snapshot)
+  quantityProvided     Decimal   @default("0") @db.Decimal(14,4)
+
+  createdAt            DateTime  @default(now()) @db.Timestamptz
+
+  requestType          RequestType @default(REPLENISH)
+  requestReason        String?      // motivo/justificativa da necessidade
+
+  requestedBy          String    @db.Uuid
+  requestedByUser      User      @relation("requests_made", fields: [requestedBy], references: [id])
+
+  statusCurrent        RequestStatus @default(PENDING)
+  statusCurrentTime    DateTime?     @db.Timestamptz
+
+  justification        String?   // justificativa quando negado ou entregue < solicitado
+
+  batchId              String?   @db.Uuid
+  batch                Batch?    @relation(fields: [batchId], references: [id])
+
+  movementResponsible  String?   @db.Uuid
+  movementResponsibleUser User?  @relation("requests_responsible", fields: [movementResponsible], references: [id])
+
+  time                 DateTime  @default(now()) @db.Timestamptz // cópia da data/hora da requisição
+
+  statusHistory ItemRequestStatusHistory[]
+
+  @@index([requestedBy])
+  @@index([itemId])
+  @@index([locationId])
+  @@index([statusCurrent])
+}
+
+model ItemRequestStatusHistory {
+  id          String        @id @default(uuid()) @db.Uuid
+
+  requestId   String        @db.Uuid
+  request     ItemRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  previousStatus RequestStatus?
+  newStatus      RequestStatus
+
+  changedBy      String?     @db.Uuid
+  changedByUser  User?       @relation("request_status_changed_by", fields: [changedBy], references: [id])
+
+  reason         String?     // motivo da mudança (ex: rejeição, ajuste, cancelamento)
+  createdAt      DateTime    @default(now()) @db.Timestamptz
+
+  @@index([requestId])
+  @@index([newStatus])
+  @@index([createdAt])
+}
+
+

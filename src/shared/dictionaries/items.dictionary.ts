@@ -1,4 +1,4 @@
-import type { BatchStatus } from "@prisma/client";
+import type { BatchStatus } from "@/generated/prisma/client";
 
 export const BatchStatusLabels: Readonly<Record<BatchStatus, string>> = {
   OPEN: "Aberto",

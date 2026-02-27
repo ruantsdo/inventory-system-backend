@@ -1,4 +1,4 @@
-import type { RequestStatus, RequestType } from "@prisma/client";
+import type { RequestStatus, RequestType } from "@/generated/prisma/client";
 
 export const RequestTypeLabels: Readonly<Record<RequestType, string>> = {
   REPLENISH: "Reposição",

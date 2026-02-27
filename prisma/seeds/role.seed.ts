@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../src/generated/prisma/client";
 
 const roles = [
   { name: "ADMIN", description: "Acesso total ao sistema" },

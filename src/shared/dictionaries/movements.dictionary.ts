@@ -1,4 +1,4 @@
-import type { MovementType } from "@prisma/client";
+import type { MovementType } from "@/generated/prisma/client";
 
 export const MovementTypeLabels: Readonly<Record<MovementType, string>> = {
   RECEIPT: "Recebimento",

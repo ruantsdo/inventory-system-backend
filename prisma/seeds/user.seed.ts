@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../src/generated/prisma/client";
 import argon2 from "argon2";
 
 export async function seedAdmin(prisma: PrismaClient, cityId: string, adminRoleId: string) {

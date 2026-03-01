@@ -28,6 +28,7 @@ export function errorHandler(
       status: "error",
       code: err.statusCode,
       message: err.message,
+      title: err.title,
     });
     return;
   }

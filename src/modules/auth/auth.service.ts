@@ -7,7 +7,7 @@ import type { LoginInput } from "./auth.schema.js";
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
 
-type UserWithRoles = NonNullable<Awaited<ReturnType<typeof AuthRepository.findUserByEmail>>>;
+type UserWithRoles = NonNullable<Awaited<ReturnType<typeof AuthRepository.findUserByCPF>>>;
 
 function parseDurationToMs(duration: string): number {
   const match = duration.match(/^(\d+)(m|h|d)$/);
@@ -29,15 +29,15 @@ function extractRbac(user: UserWithRoles) {
 
 export const AuthService = {
   async login(input: LoginInput) {
-    const user = await AuthRepository.findUserByEmail(input.email);
+    const user = await AuthRepository.findUserByCPF(input.credential);
 
     if (!user || !user.isActive) {
-      throw unauthorized("Invalid credentials");
+      throw unauthorized("Verifique suas credênciais e tente novamente", "Credenciais inválidas");
     }
 
     const passwordValid = await argon2.verify(user.passwordHash, input.password);
     if (!passwordValid) {
-      throw unauthorized("Invalid credentials");
+      throw unauthorized("Verifique suas credênciais e tente novamente", "Credenciais inválidas");
     }
 
     const { roles, permissions } = extractRbac(user);

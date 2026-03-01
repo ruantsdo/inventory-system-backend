@@ -1,9 +1,9 @@
 import { prisma } from "@/shared/db/prisma";
 
 export const AuthRepository = {
-  findUserByEmail(email: string) {
+  findUserByCPF(cpf: string) {
     return prisma.user.findUnique({
-      where: { email, isDeleted: false },
+      where: { cpf, isDeleted: false },
       include: {
         roles: {
           include: {

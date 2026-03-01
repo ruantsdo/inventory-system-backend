@@ -11,6 +11,7 @@ export async function loginController(
 ): Promise<void> {
   try {
     const input = loginSchema.parse(req.body);
+
     const { accessToken, refreshToken, accessExpiresMs, refreshExpiresMs, user } =
       await AuthService.login(input);
 
@@ -33,6 +34,31 @@ export async function loginController(
       status: "ok",
       user,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function logoutController(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+    });
+
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      path: "/auth/refresh",
+    });
+
+    res.status(200).json({ status: "ok" });
   } catch (err) {
     next(err);
   }

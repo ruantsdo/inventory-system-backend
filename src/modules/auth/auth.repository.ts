@@ -19,4 +19,23 @@ export const AuthRepository = {
       },
     });
   },
+
+  findUserById(id: string) {
+    return prisma.user.findUnique({
+      where: { id, isDeleted: false },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  },
 };

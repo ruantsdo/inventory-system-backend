@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import { loginSchema } from "./auth.schema.js";
-import { AuthService } from "./auth.service.js";
+import { decodeJwt } from "jose";
+import { loginSchema } from "./auth.schema";
+import { AuthService } from "./auth.service";
 
 const IS_PROD = process.env.NODE_ENV === "production";
 
@@ -45,6 +46,18 @@ export async function logoutController(
   next: NextFunction
 ): Promise<void> {
   try {
+    const refreshTokenStr = _req.cookies.refresh_token;
+
+    if (refreshTokenStr) {
+      const payload = decodeJwt(refreshTokenStr);
+      const userId = payload.sub;
+      const jti = payload.jti;
+
+      if (userId && jti) {
+        await AuthService.revokeUserSession(userId, jti);
+      }
+    }
+
     res.clearCookie("access_token", {
       httpOnly: true,
       secure: IS_PROD,

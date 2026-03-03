@@ -1,31 +1,18 @@
+import { randomUUID } from "node:crypto";
+import { extractRbac } from "@/shared/utils/extractors";
 import * as argon2 from "argon2";
-import { SignJWT } from "jose";
-import { env } from "../../config/env.js";
-import { unauthorized } from "../../shared/errors/AppError.js";
-import { AuthRepository } from "./auth.repository.js";
-import type { LoginInput } from "./auth.schema.js";
+import { SignJWT, jwtVerify } from "jose";
+import type { JWTPayload } from "jose";
+import { env } from "../../config/env";
+import { getRedis } from "../../config/redis";
+import { unauthorized } from "../../shared/errors/AppError";
+import { parseDurationToMs } from "../../shared/utils/timming";
+import { AuthRepository } from "./auth.repository";
+import type { LoginInput } from "./auth.schema";
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
 
-type UserWithRoles = NonNullable<Awaited<ReturnType<typeof AuthRepository.findUserByCPF>>>;
-
-function parseDurationToMs(duration: string): number {
-  const match = duration.match(/^(\d+)(m|h|d)$/);
-  if (!match) return 15 * 60 * 1000;
-  const value = Number(match[1]);
-  const unit = match[2];
-  if (unit === "m") return value * 60 * 1000;
-  if (unit === "h") return value * 60 * 60 * 1000;
-  return value * 24 * 60 * 60 * 1000; // d
-}
-
-function extractRbac(user: UserWithRoles) {
-  const roles = user.roles.map((ur) => ur.role.name);
-  const permissions = [
-    ...new Set(user.roles.flatMap((ur) => ur.role.permissions.map((rp) => rp.permission.name))),
-  ];
-  return { roles, permissions };
-}
+const redis = getRedis();
 
 export const AuthService = {
   async login(input: LoginInput) {
@@ -53,12 +40,20 @@ export const AuthService = {
       .setExpirationTime(Math.floor((now + accessExpiresMs) / 1000))
       .sign(secret);
 
+    const jti = randomUUID();
+
     const refreshToken = await new SignJWT({})
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
+      .setJti(jti)
       .setIssuedAt()
       .setExpirationTime(Math.floor((now + refreshExpiresMs) / 1000))
       .sign(secret);
+
+    const redisKey = `refresh:${user.id}:${jti}`;
+    const durationInSeconds = Math.floor(refreshExpiresMs / 1000);
+
+    await redis.set(redisKey, "active", "EX", durationInSeconds);
 
     return {
       accessToken,
@@ -69,7 +64,93 @@ export const AuthService = {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
+        roles,
+        permissions,
       },
     };
+  },
+
+  async refresh(tokenStr: string) {
+    let payload: JWTPayload;
+
+    try {
+      const { payload: verified } = await jwtVerify(tokenStr, secret);
+      payload = verified;
+    } catch {
+      throw unauthorized("Token expirado ou inválido. Faça login novamente.", "Token inválido");
+    }
+
+    const userId = payload.sub;
+    const jti = payload.jti;
+
+    if (!userId || !jti) {
+      throw unauthorized("Token malformado.", "Token inválido");
+    }
+
+    const redisKey = `refresh:${userId}:${jti}`;
+    const isValidSession = await redis.get(redisKey);
+
+    if (!isValidSession) {
+      await this.revokeAllUserSessions(userId);
+      throw unauthorized("Sessão revogada ou já utilizada.", "Sessão inválida");
+    }
+
+    await redis.del(redisKey);
+
+    const user = await AuthRepository.findUserById(userId);
+    if (!user || !user.isActive) {
+      throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
+    }
+
+    const { roles, permissions } = extractRbac(user);
+    const now = Date.now();
+    const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
+    const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
+    const newJti = randomUUID();
+
+    const newAccessToken = await new SignJWT({ roles, permissions })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(user.id)
+      .setIssuedAt()
+      .setExpirationTime(Math.floor((now + accessExpiresMs) / 1000))
+      .sign(secret);
+
+    const newRefreshToken = await new SignJWT({})
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(user.id)
+      .setJti(newJti)
+      .setIssuedAt()
+      .setExpirationTime(Math.floor((now + refreshExpiresMs) / 1000))
+      .sign(secret);
+
+    const newRedisKey = `refresh:${user.id}:${newJti}`;
+    const durationInSeconds = Math.floor(refreshExpiresMs / 1000);
+    await redis.set(newRedisKey, "active", "EX", durationInSeconds);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      accessExpiresMs,
+      refreshExpiresMs,
+    };
+  },
+
+  async revokeAllUserSessions(userId: string): Promise<void> {
+    let cursor = "0";
+    const matchPattern = `refresh:${userId}:*`;
+
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, "MATCH", matchPattern, "COUNT", 100);
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } while (cursor !== "0");
+  },
+
+  async revokeUserSession(userId: string, jti: string): Promise<void> {
+    const redisKey = `refresh:${userId}:${jti}`;
+    await redis.del(redisKey);
   },
 };

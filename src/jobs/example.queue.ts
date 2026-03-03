@@ -1,6 +1,6 @@
 import { Queue, Worker } from "bullmq";
-import { logger } from "../config/logger.js";
-import { getRedis } from "../config/redis.js";
+import { logger } from "../config/logger";
+import { getRedis } from "../config/redis";
 
 export const exampleQueue = new Queue("example", {
   connection: getRedis(),

@@ -76,6 +76,7 @@ model User {
   phone        String?
   passwordHash String
   isActive     Boolean  @default(true)
+  birthDate    DateTime @db.Date
 
   cityId String? @db.Uuid
   city   City?   @relation(fields: [cityId], references: [id])

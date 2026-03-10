@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { extractRbac } from "@/shared/utils/extractors";
 import * as argon2 from "argon2";
 import { SignJWT, jwtVerify } from "jose";
@@ -6,11 +6,16 @@ import type { JWTPayload } from "jose";
 import { env } from "../../config/env";
 import { getRedis } from "../../config/redis";
 import { unauthorized } from "../../shared/errors/AppError";
-import { parseDurationToMs } from "../../shared/utils/timming";
+import { parseDurationToMs, parseDurationToSeconds } from "../../shared/utils/timming";
 import { AuthRepository } from "./auth.repository";
-import type { LoginInput } from "./auth.schema";
+import type {
+  LoginInput,
+  ResetPasswordFirstStepInput,
+  ResetPasswordSecondStepInput,
+} from "./auth.schema";
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
+const defaultExpirationTimeInSeconds = parseDurationToSeconds(env.JWT_REFRESH_EXPIRES);
 
 const redis = getRedis();
 
@@ -19,12 +24,20 @@ export const AuthService = {
     const user = await AuthRepository.findUserByCPF(input.credential);
 
     if (!user || !user.isActive) {
-      throw unauthorized("Verifique suas credênciais e tente novamente", "Credenciais inválidas");
+      throw unauthorized(
+        "Verifique suas credênciais e tente novamente",
+        "Credenciais inválidas",
+        "INVALID_CREDENTIALS"
+      );
     }
 
     const passwordValid = await argon2.verify(user.passwordHash, input.password);
     if (!passwordValid) {
-      throw unauthorized("Verifique suas credênciais e tente novamente", "Credenciais inválidas");
+      throw unauthorized(
+        "Verifique suas credênciais e tente novamente",
+        "Credenciais inválidas",
+        "INVALID_CREDENTIALS"
+      );
     }
 
     const { roles, permissions } = extractRbac(user);
@@ -147,10 +160,61 @@ export const AuthService = {
         await redis.del(...keys);
       }
     } while (cursor !== "0");
+
+    return;
   },
 
   async revokeUserSession(userId: string, jti: string): Promise<void> {
     const redisKey = `refresh:${userId}:${jti}`;
     await redis.del(redisKey);
+
+    return;
+  },
+
+  async resetPasswordFirstStep(input: ResetPasswordFirstStepInput): Promise<string | undefined> {
+    const { cpf, birthDate, email } = input;
+    const user = await AuthRepository.checkUserForResetPasswordFirstStep(cpf, birthDate, email);
+
+    if (user?.isActive) {
+      const resetToken = randomBytes(32).toString("hex");
+
+      const redis = getRedis();
+      const redisKey = `pwd_reset:${resetToken}`;
+
+      await redis.set(redisKey, user.id, "EX", defaultExpirationTimeInSeconds);
+
+      const tokenUrl = `${env.FRONTEND_URL}/auth/reset-password-second-step?token=${resetToken}`;
+
+      // await EmailService.sendPasswordReset(user.email, resetToken);
+      console.log("==========================================");
+      console.log("Reset Password link: ");
+      console.log(tokenUrl);
+      console.log("==========================================");
+
+      return tokenUrl;
+    }
+    return;
+  },
+
+  async resetPasswordSecondStep(input: ResetPasswordSecondStepInput): Promise<void> {
+    const { token, newPassword } = input;
+
+    const redisKey = `pwd_reset:${token}`;
+
+    const userId = await redis.get(redisKey);
+
+    if (!userId) {
+      throw unauthorized(
+        "Token inválido ou expirado, por favor, solicite novamente a redefinição de senha",
+        "Token inválido ou expirado"
+      );
+    }
+
+    await redis.del(redisKey);
+
+    const passwordHash = await argon2.hash(newPassword);
+    await AuthRepository.resetPassword(userId, passwordHash);
+
+    return;
   },
 };

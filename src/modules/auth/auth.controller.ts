@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
-import { decodeJwt } from "jose";
-import { loginSchema } from "./auth.schema";
+import {
+  loginSchema,
+  resetPasswordFirstStepSchema,
+  resetPasswordSecondStepSchema,
+} from "./auth.schema";
 import { AuthService } from "./auth.service";
 
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -28,34 +31,73 @@ export async function loginController(
       secure: IS_PROD,
       sameSite: "strict",
       maxAge: refreshExpiresMs,
-      path: "/auth/refresh",
+      path: "/refresh-token",
     });
 
-    res.status(200).json({
-      status: "ok",
-      user,
+    res.status(200).json({ status: "ok", user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export function checkSessionController(req: Request, res: Response): void {
+  res.status(200).json(req.user);
+}
+
+export async function refreshController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const refreshTokenStr = req.cookies?.refresh_token as string | undefined;
+
+    if (!refreshTokenStr) {
+      res.status(401).json({ status: "unauthorized", message: "Refresh token ausente." });
+      return;
+    }
+
+    const { accessToken, refreshToken, accessExpiresMs, refreshExpiresMs } =
+      await AuthService.refresh(refreshTokenStr);
+
+    res.cookie("access_token", accessToken, {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      maxAge: accessExpiresMs,
     });
+
+    res.cookie("refresh_token", refreshToken, {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      maxAge: refreshExpiresMs,
+      path: "/refresh-token",
+    });
+
+    res.status(200).json({ status: "ok" });
   } catch (err) {
     next(err);
   }
 }
 
 export async function logoutController(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const refreshTokenStr = _req.cookies.refresh_token;
+    const { id: userId } = req.user!;
 
+    const refreshTokenStr = req.cookies?.refresh_token as string | undefined;
     if (refreshTokenStr) {
-      const payload = decodeJwt(refreshTokenStr);
-      const userId = payload.sub;
-      const jti = payload.jti;
-
-      if (userId && jti) {
-        await AuthService.revokeUserSession(userId, jti);
-      }
+      try {
+        const { decodeJwt } = await import("jose");
+        const payload = decodeJwt(refreshTokenStr);
+        if (payload.jti) {
+          await AuthService.revokeUserSession(userId, payload.jti);
+        }
+      } catch {}
     }
 
     res.clearCookie("access_token", {
@@ -68,9 +110,37 @@ export async function logoutController(
       httpOnly: true,
       secure: IS_PROD,
       sameSite: "strict",
-      path: "/auth/refresh",
+      path: "/refresh-token",
     });
 
+    res.status(200).json({ status: "ok" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPasswordFirstStepController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const input = resetPasswordFirstStepSchema.parse(req.body);
+    await AuthService.resetPasswordFirstStep(input);
+    res.status(200).json({ status: "ok" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resetPasswordSecondStepController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const input = resetPasswordSecondStepSchema.parse(req.body);
+    await AuthService.resetPasswordSecondStep(input);
     res.status(200).json({ status: "ok" });
   } catch (err) {
     next(err);

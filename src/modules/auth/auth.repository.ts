@@ -38,4 +38,17 @@ export const AuthRepository = {
       },
     });
   },
+
+  checkUserForResetPasswordFirstStep(cpf: string, email: string, birthDate: string) {
+    return prisma.user.findUnique({
+      where: { cpf, email, birthDate, isDeleted: false },
+    });
+  },
+
+  resetPassword(userId: string, password: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: password },
+    });
+  },
 };

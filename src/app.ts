@@ -9,6 +9,7 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { authRouter } from "./modules/auth/auth.router";
 import { errorHandler } from "./shared/middleware/errorHandler";
+import { globalErrorHandler } from "./shared/middleware/globalErrorHandler";
 import { notFoundHandler } from "./shared/middleware/notFound";
 
 export function createApp() {
@@ -68,6 +69,7 @@ export function createApp() {
 
   app.use(notFoundHandler);
   app.use(errorHandler);
+  app.use(globalErrorHandler);
 
   return app;
 }

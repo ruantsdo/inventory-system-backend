@@ -15,6 +15,7 @@ router.post("/login", loginController);
 router.post("/refresh-token", refreshController);
 router.post("/reset-password/first-step", resetPasswordFirstStepController);
 router.post("/reset-password/second-step", resetPasswordSecondStepController);
+router.post("/reset-password/second-step/:token", resetPasswordSecondStepController);
 
 router.get("/check-session", authenticate, checkSessionController);
 router.post("/logout", authenticate, logoutController);

@@ -139,7 +139,8 @@ export async function resetPasswordSecondStepController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const input = resetPasswordSecondStepSchema.parse(req.body);
+    const token = req.params.token ?? req.body.token;
+    const input = resetPasswordSecondStepSchema.parse({ ...req.body, token });
     await AuthService.resetPasswordSecondStep(input);
     res.status(200).json({ status: "ok" });
   } catch (err) {

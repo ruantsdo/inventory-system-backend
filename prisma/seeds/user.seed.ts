@@ -2,7 +2,7 @@ import argon2 from "argon2";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 
 export async function seedAdmin(prisma: PrismaClient, cityId: string, adminRoleId: string) {
-  const email = "admin@local";
+  const email = "admin@local.com";
   const password = "admin";
   const cpf = "00000000000";
 

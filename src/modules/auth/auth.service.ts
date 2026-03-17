@@ -173,7 +173,7 @@ export const AuthService = {
 
   async resetPasswordFirstStep(input: ResetPasswordFirstStepInput): Promise<string | undefined> {
     const { cpf, birthDate, email } = input;
-    const user = await AuthRepository.checkUserForResetPasswordFirstStep(cpf, birthDate, email);
+    const user = await AuthRepository.checkUserForResetPasswordFirstStep(cpf, email, birthDate);
 
     if (user?.isActive) {
       const resetToken = randomBytes(32).toString("hex");
@@ -183,15 +183,11 @@ export const AuthService = {
 
       await redis.set(redisKey, user.id, "EX", defaultExpirationTimeInSeconds);
 
-      const tokenUrl = `${env.FRONTEND_URL}/auth/reset-password-second-step?token=${resetToken}`;
+      const resetLink = `${env.FRONTEND_URL}/auth/reset-password-second-step/${resetToken}`;
 
-      // await EmailService.sendPasswordReset(user.email, resetToken);
-      console.log("==========================================");
-      console.log("Reset Password link: ");
-      console.log(tokenUrl);
-      console.log("==========================================");
+      // await EmailService.sendPasswordReset(user.email, resetLink);
 
-      return tokenUrl;
+      return resetLink;
     }
     return;
   },

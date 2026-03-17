@@ -40,13 +40,13 @@ export const AuthService = {
       );
     }
 
-    const { roles, permissions } = extractRbac(user);
+    const { role, permissions } = extractRbac(user);
 
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
 
-    const accessToken = await new SignJWT({ roles, permissions })
+    const accessToken = await new SignJWT({ role, permissions })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -77,7 +77,7 @@ export const AuthService = {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
-        roles,
+        role,
         permissions,
       },
     };
@@ -115,13 +115,21 @@ export const AuthService = {
       throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
     }
 
-    const { roles, permissions } = extractRbac(user);
+    //     export interface AuthUser {
+    //   id: string;
+    //   fullName: string;
+    //   email: string;
+    //   role: string;
+    //   permissions: string[];
+    // }
+
+    const { role, permissions } = extractRbac(user);
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
     const newJti = randomUUID();
 
-    const newAccessToken = await new SignJWT({ roles, permissions })
+    const newAccessToken = await new SignJWT({ role, permissions })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()

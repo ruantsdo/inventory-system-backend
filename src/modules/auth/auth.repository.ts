@@ -1,4 +1,5 @@
 import { prisma } from "@/shared/db/prisma";
+import { formatDate } from "@/shared/utils";
 
 export const AuthRepository = {
   findUserByCPF(cpf: string) {
@@ -40,8 +41,10 @@ export const AuthRepository = {
   },
 
   checkUserForResetPasswordFirstStep(cpf: string, email: string, birthDate: string) {
+    const parsedBirthDate = formatDate(birthDate);
+
     return prisma.user.findUnique({
-      where: { cpf, email, birthDate, isDeleted: false },
+      where: { cpf, email, birthDate: parsedBirthDate, isDeleted: false },
     });
   },
 

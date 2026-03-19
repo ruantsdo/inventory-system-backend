@@ -5,11 +5,11 @@ import express, { type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
-import { env } from "./config/env.js";
-import { logger } from "./config/logger.js";
-import { authRouter } from "./modules/auth/auth.router.js";
-import { errorHandler } from "./shared/middleware/errorHandler.js";
-import { notFoundHandler } from "./shared/middleware/notFound.js";
+import { env } from "./config/env";
+import { logger } from "./config/logger";
+import { authRouter } from "./modules/auth/auth.router";
+import { errorHandler } from "./shared/middleware/errorHandler";
+import { notFoundHandler } from "./shared/middleware/notFound";
 
 export function createApp() {
   if (env.SENTRY_DSN) {

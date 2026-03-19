@@ -1,8 +1,8 @@
 import http from "node:http";
-import { createApp } from "./app.js";
-import { env } from "./config/env.js";
-import { logger, wrapLoggerWithSentry } from "./config/logger.js";
-import { closeRedis, getRedis } from "./config/redis.js";
+import { createApp } from "./app";
+import { env } from "./config/env";
+import { logger, wrapLoggerWithSentry } from "./config/logger";
+import { closeRedis, getRedis } from "./config/redis";
 
 async function bootstrap() {
   const app = createApp();

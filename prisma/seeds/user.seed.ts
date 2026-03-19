@@ -1,9 +1,10 @@
-import type { PrismaClient } from "../../src/generated/prisma/client";
 import argon2 from "argon2";
+import type { PrismaClient } from "../../src/generated/prisma/client";
 
 export async function seedAdmin(prisma: PrismaClient, cityId: string, adminRoleId: string) {
-  const email = "admin@local";
+  const email = "admin@local.com";
   const password = "admin";
+  const cpf = "00000000000";
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -19,7 +20,9 @@ export async function seedAdmin(prisma: PrismaClient, cityId: string, adminRoleI
       email,
       passwordHash,
       isActive: true,
+      birthDate: new Date(),
       cityId,
+      cpf,
     },
   });
 

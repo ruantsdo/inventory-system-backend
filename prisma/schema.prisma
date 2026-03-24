@@ -44,6 +44,17 @@ enum RequestStatus {
   REJECTED
 }
 
+enum PermissionScopeMode {
+  GLOBAL
+  FACILITY
+  OWN
+}
+
+enum UserRoleScopeMode {
+  GLOBAL
+  FACILITY_SET
+}
+
 //////////////////////////////////////////////////////
 // CORE REFERENCE
 //////////////////////////////////////////////////////
@@ -52,9 +63,14 @@ model City {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
   state     String?
-  country   String?  @default("BR")
+  country   String   @default("BR")
+
+  isDeleted     Boolean   @default(false)
+  deletedAt     DateTime? @db.Timestamptz
+  deletedByUserId String? @db.Uuid
+
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   users         User[]
   facilities    Facility[]
@@ -62,6 +78,7 @@ model City {
   manufacturers Manufacturer[]
 
   @@index([name])
+  @@index([state])
 }
 
 //////////////////////////////////////////////////////
@@ -79,38 +96,51 @@ model User {
   birthDate    DateTime @db.Date
 
   cityId String? @db.Uuid
-  city   City?   @relation(fields: [cityId], references: [id])
+  city   City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
 
-  requestsMade ItemRequest[] @relation("requests_made")
-  requestsResponsible ItemRequest[] @relation("requests_responsible")
-  requestStatusChanges ItemRequestStatusHistory[] @relation("request_status_changed_by")
+  requestsMade           ItemRequest[]              @relation("requests_made")
+  requestsResponsible    ItemRequest[]              @relation("requests_responsible")
+  requestStatusChanges    ItemRequestStatusHistory[] @relation("request_status_changed_by")
+  assignedUserRoles       UserRole[]                 @relation("UserRoleAssignedBy")
+  performedMovements      StockMovement[]            @relation("StockMovementPerformedBy")
 
   // Soft delete
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   roles UserRole[]
 
   @@index([email])
+  @@index([cityId])
+  @@index([isActive])
 }
 
 model Role {
-  id          String @id @default(uuid()) @db.Uuid
-  name        String @unique
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  displayName String
   description String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   permissions RolePermission[]
   users       UserRole[]
 }
 
 model Permission {
-  id          String @id @default(uuid()) @db.Uuid
-  name        String @unique
+  id          String              @id @default(uuid()) @db.Uuid
+  name        String              @unique
+  displayName String
   description String?
+  scopeMode   PermissionScopeMode @default(FACILITY)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   roles RolePermission[]
 }
@@ -120,23 +150,54 @@ model RolePermission {
   roleId       String @db.Uuid
   permissionId String @db.Uuid
 
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
 }
 
 model UserRole {
-  id               String @id @default(uuid()) @db.Uuid
-  userId           String @db.Uuid
-  roleId           String @db.Uuid
-  scopeFacilityId  String? @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
 
-  user     User     @relation(fields: [userId], references: [id])
-  role     Role     @relation(fields: [roleId], references: [id])
-  facility Facility? @relation("UserRoleFacility", fields: [scopeFacilityId], references: [id])
+  userId  String @db.Uuid
+  roleId  String @db.Uuid
 
-  @@unique([userId, roleId, scopeFacilityId])
+  scopeMode  UserRoleScopeMode @default(FACILITY_SET)
+  isActive   Boolean           @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  assignedByUserId String? @db.Uuid
+  assignedByUser    User?   @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  facilities UserRoleFacilityScope[]
+
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+  assignedAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([userId])
+  @@index([roleId])
+  @@index([scopeMode])
+  @@unique([userId, roleId, scopeMode])
+}
+
+model UserRoleFacilityScope {
+  id         String @id @default(uuid()) @db.Uuid
+  userRoleId  String @db.Uuid
+  facilityId  String @db.Uuid
+
+  userRole UserRole @relation(fields: [userRoleId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([userRoleId, facilityId])
+  @@index([facilityId])
+  @@index([userRoleId])
 }
 
 //////////////////////////////////////////////////////
@@ -153,20 +214,24 @@ model Facility {
   isActive    Boolean @default(true)
 
   cityId String? @db.Uuid
-  city   City?   @relation(fields: [cityId], references: [id])
+  city   City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
 
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
-  locations Location[]
-  inventory InventoryEntry[]
-  movements StockMovement[]
+  locations      Location[]
+  inventory      InventoryEntry[]
+  movements      StockMovement[]
+  itemRequests   ItemRequest[]
+  userRoleScopes UserRoleFacilityScope[]   // <- adicionar aqui
 
-  userRoles UserRole[] @relation("UserRoleFacility")
+  @@index([cityId])
+  @@index([isActive])
+  @@index([name])
 }
 
 model Location {
@@ -177,20 +242,22 @@ model Location {
   description String?
   isActive    Boolean @default(true)
 
-  facility Facility @relation(fields: [facilityId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
 
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
-  inventory InventoryEntry[]
-  movements StockMovement[]
+  inventory    InventoryEntry[]
+  movements    StockMovement[]
   itemRequests ItemRequest[]
 
   @@unique([facilityId, code])
+  @@index([facilityId])
+  @@index([isActive])
 }
 
 //////////////////////////////////////////////////////
@@ -203,21 +270,39 @@ model Manufacturer {
   cnpj      String?
   contact   Json?
   cityId    String? @db.Uuid
-  city      City? @relation(fields: [cityId], references: [id])
+  city      City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   items Item[]
+
+  @@index([name])
+  @@index([cityId])
+  @@index([cnpj])
 }
 
 model Supplier {
-  id        String @id @default(uuid()) @db.Uuid
-  name      String
-  cnpj      String?
-  contact   Json?
-  cityId    String? @db.Uuid
-  city      City? @relation(fields: [cityId], references: [id])
-  defaultLeadTimeDays Int?
-  createdAt DateTime @default(now()) @db.Timestamptz
+  id                  String  @id @default(uuid()) @db.Uuid
+  name                String
+  cnpj                String?
+  contact             Json?
+  cityId              String? @db.Uuid
+  city                City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  defaultLeadTimeDays  Int?
+  createdAt           DateTime @default(now()) @db.Timestamptz
+  updatedAt           DateTime @updatedAt @db.Timestamptz
+
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
+
+  @@index([name])
+  @@index([cityId])
+  @@index([cnpj])
 }
 
 //////////////////////////////////////////////////////
@@ -230,66 +315,82 @@ model ItemType {
   title            String
   description      String?
   attributesSchema Json?
-  createdAt        DateTime @default(now()) @db.Timestamptz
+
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   items Item[]
+
+  @@index([slug])
+  @@index([title])
 }
 
 model Item {
-  id               String   @id @default(uuid()) @db.Uuid
-  identifier       String   @unique
-  gtin             String?  @unique
-  name             String
-  description      String?
-  itemTypeId       String?  @db.Uuid
-  itemType         ItemType? @relation(fields: [itemTypeId], references: [id])
+  id                String   @id @default(uuid()) @db.Uuid
+  identifier        String   @unique
+  gtin              String?  @unique
+  name              String
+  description       String?
+  itemTypeId        String?  @db.Uuid
+  itemType          ItemType? @relation(fields: [itemTypeId], references: [id], onDelete: SetNull)
   unitOfMeasurement String
-  unitSize         Decimal? @db.Decimal(14,4)
-  isActive         Boolean  @default(true)
-  attributes       Json?
+  unitSize          Decimal? @db.Decimal(14, 4)
+  isActive          Boolean  @default(true)
+  attributes        Json?
 
-  manufacturerId String? @db.Uuid
-  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [id])
+  manufacturerId String?       @db.Uuid
+  manufacturer   Manufacturer? @relation(fields: [manufacturerId], references: [id], onDelete: SetNull)
 
   // Soft delete
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
-  version Int @default(1)
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  version   Int      @default(1)
 
-  batches Batch[]
-  inventory InventoryEntry[]
-  movements StockMovement[]
-  requests ItemRequest[]
+  batches    Batch[]
+  inventory  InventoryEntry[]
+  movements  StockMovement[]
+  requests   ItemRequest[]
 
   @@index([name])
+  @@index([itemTypeId])
+  @@index([manufacturerId])
 }
 
 model Batch {
   id                String @id @default(uuid()) @db.Uuid
   itemId            String @db.Uuid
-  item              Item @relation(fields: [itemId], references: [id])
+  item              Item   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
   batchCode         String?
   expirationDate    DateTime?
-  quantityReceived  Decimal @default("0") @db.Decimal(14,4)
-  quantityAvailable Decimal @default("0") @db.Decimal(14,4)
-  unitCost          Decimal? @db.Decimal(14,4)
+  quantityReceived  Decimal @default("0") @db.Decimal(14, 4)
+  quantityAvailable Decimal @default("0") @db.Decimal(14, 4)
+  unitCost          Decimal? @db.Decimal(14, 4)
   status            BatchStatus @default(OPEN)
-  createdAt         DateTime @default(now()) @db.Timestamptz
 
   // Soft delete
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
-  inventory InventoryEntry[]
-  movements StockMovement[]
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  inventory    InventoryEntry[]
+  movements    StockMovement[]
   itemRequests ItemRequest[]
 
+  @@index([itemId])
   @@index([expirationDate])
+  @@index([status])
 }
 
 //////////////////////////////////////////////////////
@@ -297,31 +398,39 @@ model Batch {
 //////////////////////////////////////////////////////
 
 model InventoryEntry {
-  id               String @id @default(uuid()) @db.Uuid
-  itemId           String @db.Uuid
-  facilityId       String @db.Uuid
-  locationId       String? @db.Uuid
-  batchId          String? @db.Uuid
+  id              String @id @default(uuid()) @db.Uuid
 
-  item      Item     @relation(fields: [itemId], references: [id])
-  facility  Facility @relation(fields: [facilityId], references: [id])
-  location  Location? @relation(fields: [locationId], references: [id])
-  batch     Batch?   @relation(fields: [batchId], references: [id])
+  /// Chave lógica única montada pela aplicação:
+  /// itemId:facilityId:locationId|NULL:batchId|NULL
+  balanceKey      String @unique
 
-  quantityOnHand   Decimal @default("0") @db.Decimal(14,4)
-  quantityReserved Decimal @default("0") @db.Decimal(14,4)
+  itemId          String @db.Uuid
+  facilityId      String @db.Uuid
+  locationId      String? @db.Uuid
+  batchId         String? @db.Uuid
+
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  facility  Facility  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  location  Location? @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  quantityOnHand   Decimal @default("0") @db.Decimal(14, 4)
+  quantityReserved Decimal @default("0") @db.Decimal(14, 4)
 
   lastTransactionAt DateTime? @db.Timestamptz
 
   // Soft delete
-  isDeleted Boolean @default(false)
-  deletedAt DateTime? @db.Timestamptz
-  deletedBy String? @db.Uuid
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
 
   createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime? @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
-  @@unique([itemId, facilityId, batchId, locationId])
+  @@index([itemId])
+  @@index([facilityId])
+  @@index([locationId])
+  @@index([batchId])
   @@index([itemId, facilityId])
 }
 
@@ -332,25 +441,32 @@ model InventoryEntry {
 model StockMovement {
   id           String       @id @default(uuid()) @db.Uuid
   movementType MovementType
+
   referenceId  String?      @db.Uuid
+  itemRequestId String?     @db.Uuid
 
   itemId     String @db.Uuid
   facilityId String @db.Uuid
   locationId String? @db.Uuid
   batchId    String? @db.Uuid
 
-  item     Item     @relation(fields: [itemId], references: [id])
-  facility Facility @relation(fields: [facilityId], references: [id])
-  location Location? @relation(fields: [locationId], references: [id])
-  batch    Batch?   @relation(fields: [batchId], references: [id])
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  facility  Facility  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  location  Location?  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  request   ItemRequest? @relation(fields: [itemRequestId], references: [id], onDelete: SetNull)
 
-  quantity    Decimal  @db.Decimal(14,4)
-  unitCost    Decimal? @db.Decimal(14,4)
-  performedBy String?  @db.Uuid
+  quantity    Decimal  @db.Decimal(14, 4)
+  unitCost    Decimal? @db.Decimal(14, 4)
+  performedByUserId String? @db.Uuid
+  performedByUser   User?   @relation("StockMovementPerformedBy", fields: [performedByUserId], references: [id], onDelete: SetNull)
   performedAt DateTime @default(now()) @db.Timestamptz
   notes       String?
 
   @@index([itemId, facilityId, performedAt])
+  @@index([batchId])
+  @@index([locationId])
+  @@index([itemRequestId])
 }
 
 //////////////////////////////////////////////////////
@@ -359,73 +475,81 @@ model StockMovement {
 
 model VwStockBalance {
   id         String  @id
+  balanceKey String
   itemId     String  @db.Uuid
   facilityId String  @db.Uuid
+  locationId String? @db.Uuid
   batchId    String? @db.Uuid
-  qty        Decimal @db.Decimal(14,4)
+  qty        Decimal @db.Decimal(14, 4)
 
   @@map("vw_stock_balance_mat")
 }
 
-/// ===============================
-/// REQUESTS
-/// ===============================
+//////////////////////////////////////////////////////
+// REQUESTS
+//////////////////////////////////////////////////////
 
 model ItemRequest {
-  id                   String    @id @default(uuid()) @db.Uuid
-  locationId           String?   @db.Uuid
-  location             Location? @relation(fields: [locationId], references: [id])
+  id              String @id @default(uuid()) @db.Uuid
 
-  itemId               String    @db.Uuid
-  item                 Item      @relation(fields: [itemId], references: [id])
+  facilityId      String @db.Uuid
+  facility        Facility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
 
-  quantityNeeded       Decimal   @db.Decimal(14,4)
-  quantityCurrent      Decimal?  @db.Decimal(14,4) // quantidade atual no momento da requisição (snapshot)
-  quantityProvided     Decimal   @default("0") @db.Decimal(14,4)
+  locationId      String? @db.Uuid
+  location        Location? @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
-  createdAt            DateTime  @default(now()) @db.Timestamptz
+  itemId          String @db.Uuid
+  item            Item   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
-  requestType          RequestType @default(REPLENISH)
-  requestReason        String?      // motivo/justificativa da necessidade
+  quantityNeeded   Decimal @db.Decimal(14, 4)
+  quantityCurrent  Decimal? @db.Decimal(14, 4)
+  quantityProvided Decimal @default("0") @db.Decimal(14, 4)
 
-  requestedBy          String    @db.Uuid
-  requestedByUser      User      @relation("requests_made", fields: [requestedBy], references: [id])
+  createdAt DateTime @default(now()) @db.Timestamptz
 
-  statusCurrent        RequestStatus @default(PENDING)
-  statusCurrentTime    DateTime?     @db.Timestamptz
+  requestType   RequestType   @default(REPLENISH)
+  requestReason String?
 
-  justification        String?   // justificativa quando negado ou entregue < solicitado
+  requestedByUserId String @db.Uuid
+  requestedByUser   User   @relation("requests_made", fields: [requestedByUserId], references: [id], onDelete: Restrict)
 
-  batchId              String?   @db.Uuid
-  batch                Batch?    @relation(fields: [batchId], references: [id])
+  statusCurrent     RequestStatus @default(PENDING)
+  statusCurrentTime DateTime?     @db.Timestamptz
 
-  movementResponsible  String?   @db.Uuid
-  movementResponsibleUser User?  @relation("requests_responsible", fields: [movementResponsible], references: [id])
+  justification String?
 
-  time                 DateTime  @default(now()) @db.Timestamptz // cópia da data/hora da requisição
+  batchId String? @db.Uuid
+  batch   Batch?   @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  movementResponsibleUserId String? @db.Uuid
+  movementResponsibleUser   User?   @relation("requests_responsible", fields: [movementResponsibleUserId], references: [id], onDelete: SetNull)
+
+  time DateTime @default(now()) @db.Timestamptz
 
   statusHistory ItemRequestStatusHistory[]
+  stockMovements StockMovement[]   // <- adicionar aqui
 
-  @@index([requestedBy])
+  @@index([facilityId])
+  @@index([requestedByUserId])
   @@index([itemId])
   @@index([locationId])
   @@index([statusCurrent])
 }
 
 model ItemRequestStatusHistory {
-  id          String        @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  requestId   String        @db.Uuid
-  request     ItemRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String @db.Uuid
+  request   ItemRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   previousStatus RequestStatus?
   newStatus      RequestStatus
 
-  changedBy      String?     @db.Uuid
-  changedByUser  User?       @relation("request_status_changed_by", fields: [changedBy], references: [id])
+  changedByUserId String? @db.Uuid
+  changedByUser   User?   @relation("request_status_changed_by", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
-  reason         String?     // motivo da mudança (ex: rejeição, ajuste, cancelamento)
-  createdAt      DateTime    @default(now()) @db.Timestamptz
+  reason    String?
+  createdAt DateTime @default(now()) @db.Timestamptz
 
   @@index([requestId])
   @@index([newStatus])

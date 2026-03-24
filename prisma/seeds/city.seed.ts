@@ -1,21 +1,27 @@
 import type { PrismaClient } from "../../src/generated/prisma/client";
 
 export async function seedCity(prisma: PrismaClient) {
-  const cityName = "Alagoinhas";
+  const name = "Alagoinhas";
+  const state = "BA";
+  const country = "BR";
 
-  let city = await prisma.city.findFirst({
-    where: { name: cityName },
+  const existing = await prisma.city.findFirst({
+    where: {
+      name,
+      state,
+      country,
+    },
   });
 
-  if (!city) {
-    city = await prisma.city.create({
-      data: {
-        name: cityName,
-        state: "BA",
-        country: "BR",
-      },
-    });
-  }
+  if (existing) return existing;
+
+  const city = await prisma.city.create({
+    data: {
+      name,
+      state,
+      country,
+    },
+  });
 
   return city;
 }

@@ -6,8 +6,12 @@ export const AuthRepository = {
     return prisma.user.findUnique({
       where: { cpf, isDeleted: false },
       include: {
+        city: true,
         roles: {
           include: {
+            facilities: {
+              include: { facility: true },
+            },
             role: {
               include: {
                 permissions: {
@@ -25,8 +29,12 @@ export const AuthRepository = {
     return prisma.user.findUnique({
       where: { id, isDeleted: false },
       include: {
+        city: true,
         roles: {
           include: {
+            facilities: {
+              include: { facility: true },
+            },
             role: {
               include: {
                 permissions: {

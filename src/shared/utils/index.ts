@@ -1,5 +1,5 @@
-import { extractRbac } from "./extractors";
+import { extractSession } from "./extractors";
 import { formatDate } from "./formatters";
 import { parseDurationToMs } from "./timming";
 
-export { parseDurationToMs, extractRbac, formatDate };
+export { parseDurationToMs, extractSession, formatDate };

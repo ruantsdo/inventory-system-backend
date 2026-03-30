@@ -36,11 +36,6 @@ export const resetPasswordSecondStepSchema = z
     path: ["confirmPassword"],
   });
 
-export const checkSessionSchema = z.object({
-  userId: z.string().min(1, "User ID is required"),
-});
-
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ResetPasswordFirstStepInput = z.infer<typeof resetPasswordFirstStepSchema>;
 export type ResetPasswordSecondStepInput = z.infer<typeof resetPasswordSecondStepSchema>;
-export type CheckSessionData = z.infer<typeof checkSessionSchema>;

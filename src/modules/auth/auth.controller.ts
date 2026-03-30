@@ -16,7 +16,7 @@ export async function loginController(
   try {
     const input = loginSchema.parse(req.body);
 
-    const { accessToken, refreshToken, accessExpiresMs, refreshExpiresMs, user } =
+    const { accessToken, refreshToken, accessExpiresMs, refreshExpiresMs, session } =
       await AuthService.login(input);
 
     res.cookie("access_token", accessToken, {
@@ -34,14 +34,23 @@ export async function loginController(
       path: "/refresh-token",
     });
 
-    res.status(200).json({ status: "ok", user });
+    res.status(200).json({ status: "ok", session });
   } catch (err) {
     next(err);
   }
 }
 
-export function checkSessionController(req: Request, res: Response): void {
-  res.status(200).json(req.user);
+export async function checkSessionController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await AuthService.getSession(req.user!.id);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function refreshController(

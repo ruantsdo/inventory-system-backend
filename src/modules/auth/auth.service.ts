@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { extractRbac } from "@/shared/utils/extractors";
+import { extractSession } from "@/shared/utils/extractors";
 import * as argon2 from "argon2";
 import { SignJWT, jwtVerify } from "jose";
 import type { JWTPayload } from "jose";
@@ -40,13 +40,15 @@ export const AuthService = {
       );
     }
 
-    const { role, permissions } = extractRbac(user);
-
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
 
-    const accessToken = await new SignJWT({ role, permissions })
+    const expiresAt = new Date(now + refreshExpiresMs).toISOString();
+
+    const { session, jwtClaims } = extractSession(user, expiresAt);
+
+    const accessToken = await new SignJWT(jwtClaims)
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -73,13 +75,7 @@ export const AuthService = {
       refreshToken,
       accessExpiresMs,
       refreshExpiresMs,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role,
-        permissions,
-      },
+      session,
     };
   },
 
@@ -115,21 +111,13 @@ export const AuthService = {
       throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
     }
 
-    //     export interface AuthUser {
-    //   id: string;
-    //   fullName: string;
-    //   email: string;
-    //   role: string;
-    //   permissions: string[];
-    // }
-
-    const { role, permissions } = extractRbac(user);
+    const { jwtClaims } = extractSession(user);
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
     const newJti = randomUUID();
 
-    const newAccessToken = await new SignJWT({ role, permissions })
+    const newAccessToken = await new SignJWT(jwtClaims)
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -153,6 +141,21 @@ export const AuthService = {
       refreshToken: newRefreshToken,
       accessExpiresMs,
       refreshExpiresMs,
+    };
+  },
+
+  async getSession(userId: string) {
+    const user = await AuthRepository.findUserById(userId);
+
+    if (!user || !user.isActive) {
+      return { authenticated: false as const, session: null };
+    }
+
+    const { session } = extractSession(user);
+
+    return {
+      authenticated: true as const,
+      session,
     };
   },
 

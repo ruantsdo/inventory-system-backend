@@ -227,7 +227,7 @@ model Facility {
   inventory      InventoryEntry[]
   movements      StockMovement[]
   itemRequests   ItemRequest[]
-  userRoleScopes UserRoleFacilityScope[]   // <- adicionar aqui
+  userRoleScopes UserRoleFacilityScope[]
 
   @@index([cityId])
   @@index([isActive])
@@ -414,6 +414,11 @@ model InventoryEntry {
   location  Location? @relation(fields: [locationId], references: [id], onDelete: Restrict)
   batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: Restrict)
 
+  minQuantity     Decimal? @db.Decimal(14,4)
+  maxQuantity     Decimal? @db.Decimal(14,4)
+  reorderPoint    Decimal? @db.Decimal(14,4)
+  reorderQuantity Decimal? @db.Decimal(14,4)
+  
   quantityOnHand   Decimal @default("0") @db.Decimal(14, 4)
   quantityReserved Decimal @default("0") @db.Decimal(14, 4)
 

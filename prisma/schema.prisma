@@ -55,6 +55,22 @@ enum UserRoleScopeMode {
   FACILITY_SET
 }
 
+enum ProfessionalDocumentType {
+  CRM
+  CRMV
+  CRO
+  COREN
+  CREFITO
+  CREF
+  CRP
+  CRA
+  CREA
+  CAU
+  OAB
+  RQE
+  OTHER
+}
+
 //////////////////////////////////////////////////////
 // CORE REFERENCE
 //////////////////////////////////////////////////////
@@ -89,11 +105,19 @@ model User {
   id           String   @id @default(uuid()) @db.Uuid
   fullName     String
   email        String   @unique
-  cpf          String?  @unique
+  cpf          String  @unique
   phone        String?
   passwordHash String
-  isActive     Boolean  @default(true)
+  isActive     Boolean  @default(false)
   birthDate    DateTime @db.Date
+
+  zipCode         String?
+  streetAddress   String?
+  number          String?
+  additionalInfo  String?
+  neighborhood    String?
+  addressCity     String?
+  state           String?
 
   cityId String? @db.Uuid
   city   City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
@@ -113,9 +137,39 @@ model User {
   updatedAt DateTime @updatedAt @db.Timestamptz
 
   roles UserRole[]
+  professionalDocuments UserProfessionalDocument[]
 
   @@index([email])
   @@index([cityId])
+  @@index([isActive])
+}
+
+model UserProfessionalDocument {
+  id           String                  @id @default(uuid()) @db.Uuid
+  userId       String                  @db.Uuid
+  documentType ProfessionalDocumentType
+  documentNumber String
+  issuer       String?
+  issuerState  String?
+  issuedAt     DateTime?               @db.Date
+  expiresAt    DateTime?               @db.Date
+  isPrimary    Boolean                 @default(false)
+  isActive     Boolean                 @default(true)
+  notes        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  isDeleted       Boolean   @default(false)
+  deletedAt       DateTime? @db.Timestamptz
+  deletedByUserId String?   @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@unique([userId, documentType, documentNumber])
+  @@index([userId])
+  @@index([documentType])
+  @@index([documentNumber])
   @@index([isActive])
 }
 
@@ -560,5 +614,3 @@ model ItemRequestStatusHistory {
   @@index([newStatus])
   @@index([createdAt])
 }
-
-

@@ -1,6 +1,8 @@
 import type { PrismaClient } from "../../src/generated/prisma/client";
 
 export async function seedCity(prisma: PrismaClient) {
+  console.log("Seeding city...");
+
   const name = "Alagoinhas";
   const state = "BA";
   const country = "BR";
@@ -22,6 +24,8 @@ export async function seedCity(prisma: PrismaClient) {
       country,
     },
   });
+
+  console.log("City seeded.");
 
   return city;
 }

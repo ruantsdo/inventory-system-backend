@@ -3,8 +3,10 @@ import type { PrismaClient } from "../../src/generated/prisma/client";
 import { UserRoleScopeMode } from "../../src/generated/prisma/enums";
 
 export async function seedAdmin(prisma: PrismaClient, adminRoleId: string, cityId?: string) {
+  console.log("Seeding admin...");
+
   const email = "admin@local.com";
-  const password = "superAdmin000";
+  const password = "123456789";
   const cpf = "00000000000";
 
   const existingUser = await prisma.user.findUnique({
@@ -27,6 +29,7 @@ export async function seedAdmin(prisma: PrismaClient, adminRoleId: string, cityI
         cityId: cityId ?? null,
         cpf,
         birthDate: new Date(),
+        additionalInfo: "Usuário administrador criado automaticamente.",
       },
     });
 
@@ -50,6 +53,8 @@ export async function seedAdmin(prisma: PrismaClient, adminRoleId: string, cityI
       },
     });
   }
+
+  console.log("Admin seeded.");
 
   return {
     userId,

@@ -25,7 +25,7 @@ async function main() {
   await seedRoles(prisma);
 
   const city = await seedCity(prisma);
-  const facilities = await seedFacilities(prisma, city.id);
+  await seedFacilities(prisma, city.id);
 
   const adminRole = await prisma.role.findUnique({
     where: { name: "ADMIN" },
@@ -38,10 +38,6 @@ async function main() {
   await seedAdmin(prisma, adminRole.id, city.id);
 
   console.log("Seed completed successfully.");
-  console.log({
-    city: city.name,
-    facilities: facilities.map((f) => f.name),
-  });
 }
 
 main()

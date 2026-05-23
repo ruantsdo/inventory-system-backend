@@ -330,6 +330,8 @@ const roles: RoleSeed[] = [
 ];
 
 export async function seedRoles(prisma: PrismaClient) {
+  console.log("Seeding roles...");
+
   const permissions = await prisma.permission.findMany({
     select: { id: true, name: true },
   });

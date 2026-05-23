@@ -38,6 +38,8 @@ const facilities: SeedFacilityInput[] = [
 ];
 
 export async function seedFacilities(prisma: PrismaClient, cityId: string) {
+  console.log("Seeding facilities...");
+
   const createdFacilities: { id: string; name: string }[] = [];
 
   for (const facility of facilities) {

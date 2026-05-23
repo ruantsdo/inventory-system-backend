@@ -83,8 +83,7 @@ export const AuthService = {
     let payload: JWTPayload;
 
     try {
-      const { payload: verified } = await jwtVerify(tokenStr, secret);
-      payload = verified;
+      ({ payload } = await jwtVerify(tokenStr, secret));
     } catch {
       throw unauthorized("Token expirado ou inválido. Faça login novamente.", "Token inválido");
     }
@@ -111,7 +110,7 @@ export const AuthService = {
       throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
     }
 
-    const { jwtClaims } = extractSession(user);
+    const { jwtClaims, session } = extractSession(user);
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
@@ -141,6 +140,7 @@ export const AuthService = {
       refreshToken: newRefreshToken,
       accessExpiresMs,
       refreshExpiresMs,
+      session,
     };
   },
 

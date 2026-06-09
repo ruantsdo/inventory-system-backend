@@ -8,4 +8,8 @@ export const PermissionsService = {
   async getPermissionsForUser(userId: string) {
     return PermissionsRepository.findPermissionsByUserId(userId);
   },
+
+  async getUserAuthorizationData(userId: string) {
+    return PermissionsRepository.getUserActiveAuthorizationInfo(userId);
+  },
 };

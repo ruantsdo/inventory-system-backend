@@ -41,4 +41,63 @@ export const PermissionsRepository = {
       },
     });
   },
+
+  async getUserActiveAuthorizationInfo(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId, isDeleted: false, isActive: true },
+      include: {
+        roles: {
+          where: { isActive: true },
+          include: {
+            facilities: {
+              include: { facility: true },
+            },
+            role: {
+              include: {
+                permissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const activeUserRoles = user.roles;
+    const roleNames = activeUserRoles.map((ur) => ur.role.name);
+    const roleIds = activeUserRoles.map((ur) => ur.role.id);
+
+    const facilitiesSet = new Set<string>();
+    for (const ur of activeUserRoles) {
+      if (ur.scopeMode === "FACILITY_SET") {
+        for (const scope of ur.facilities) {
+          facilitiesSet.add(scope.facility.id);
+        }
+      }
+    }
+    const facilityIds = [...facilitiesSet];
+
+    const permissionNamesSet = new Set<string>();
+    const permissionIdsSet = new Set<string>();
+    for (const ur of activeUserRoles) {
+      for (const rp of ur.role.permissions) {
+        permissionNamesSet.add(rp.permission.name);
+        permissionIdsSet.add(rp.permission.id);
+      }
+    }
+
+    return {
+      userId: user.id,
+      roleNames,
+      roleIds,
+      permissionNames: [...permissionNamesSet],
+      permissionIds: [...permissionIdsSet],
+      facilityIds,
+    };
+  },
 };

@@ -7,6 +7,7 @@ declare global {
         id: string;
         roleNames: string[];
         permissionNames: string[];
+        facilitiesNames: string[];
       };
     }
   }

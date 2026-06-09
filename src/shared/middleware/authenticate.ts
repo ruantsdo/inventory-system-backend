@@ -22,12 +22,13 @@ export async function authenticate(
     const id = payload.sub;
     const roleNames = (payload.roleNames ?? []) as string[];
     const permissionNames = (payload.permissionNames ?? []) as string[];
+    const facilitiesNames = (payload.facilitiesNames ?? []) as string[];
 
     if (!id) {
       return next(unauthorized("Token malformado.", "Não autenticado"));
     }
 
-    req.user = { id, roleNames, permissionNames };
+    req.user = { id, roleNames, permissionNames, facilitiesNames };
     next();
   } catch {
     next(unauthorized("Sessão expirada ou inválida. Faça login novamente.", "Não autenticado"));

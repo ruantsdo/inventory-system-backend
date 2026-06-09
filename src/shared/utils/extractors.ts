@@ -12,10 +12,14 @@ type UserWithRoles = NonNullable<Awaited<ReturnType<typeof AuthRepository.findUs
 function extractSession(
   user: UserWithRoles,
   expiresAt?: string | null
-): { session: AuthSessionOutput; jwtClaims: { roleNames: string[]; permissionNames: string[] } } {
+): {
+  session: AuthSessionOutput;
+  jwtClaims: { roleNames: string[]; permissionNames: string[]; facilitiesNames: string[] };
+} {
   const activeUserRoles = user.roles.filter((ur) => ur.isActive);
 
   const roles: RoleOutput[] = activeUserRoles.map((ur) => ({
+    id: ur.role.id,
     name: ur.role.name,
     displayName: ur.role.displayName,
     description: ur.role.description ?? null,
@@ -40,18 +44,19 @@ function extractSession(
 
   const effectiveMap = new Map<
     string,
-    { scopeMode: string; allowedFacilityIds: Set<string> | null }
+    { id: string; scopeMode: string; allowedFacilityIds: Set<string> | null }
   >();
 
   for (const ur of activeUserRoles) {
     for (const rp of ur.role.permissions) {
+      const permId = rp.permission.id;
       const permName = rp.permission.name;
       const permScopeMode = rp.permission.scopeMode;
 
       const existing = effectiveMap.get(permName);
 
       if (ur.scopeMode === "GLOBAL") {
-        effectiveMap.set(permName, { scopeMode: permScopeMode, allowedFacilityIds: null });
+        effectiveMap.set(permName, { id: permId, scopeMode: permScopeMode, allowedFacilityIds: null });
       } else if (ur.scopeMode === "FACILITY_SET") {
         if (existing?.allowedFacilityIds === null) {
           continue;
@@ -61,14 +66,15 @@ function extractSession(
         for (const scope of ur.facilities) {
           facilitySet.add(scope.facility.id);
         }
-        effectiveMap.set(permName, { scopeMode: permScopeMode, allowedFacilityIds: facilitySet });
+        effectiveMap.set(permName, { id: permId, scopeMode: permScopeMode, allowedFacilityIds: facilitySet });
       }
     }
   }
 
   const effectivePermissions: EffectivePermissionOutput[] = [];
-  for (const [name, { scopeMode, allowedFacilityIds }] of effectiveMap) {
+  for (const [name, { id, scopeMode, allowedFacilityIds }] of effectiveMap) {
     effectivePermissions.push({
+      id,
       name,
       scopeMode,
       isGlobal: allowedFacilityIds === null,
@@ -91,12 +97,6 @@ function extractSession(
   const authUser = {
     id: user.id,
     fullName: user.fullName,
-    city: user.city
-      ? {
-          id: user.city.id,
-          name: user.city.name,
-        }
-      : null,
   };
 
   const session: AuthSessionOutput = {
@@ -114,6 +114,7 @@ function extractSession(
     jwtClaims: {
       roleNames: roles.map((r) => r.name),
       permissionNames,
+      facilitiesNames: facilities.map((f) => f.name),
     },
   };
 }

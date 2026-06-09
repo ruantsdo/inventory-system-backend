@@ -8,6 +8,9 @@ import { pinoHttp } from "pino-http";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { authRouter } from "./modules/auth/auth.router";
+import { geoRouter } from "./modules/geo/geo.router";
+import { permissionsRouter } from "./modules/permissions/permissions.router";
+import { usersRouter } from "./modules/users/users.router";
 import { errorHandler } from "./shared/middleware/errorHandler";
 import { notFoundHandler } from "./shared/middleware/notFound";
 
@@ -65,6 +68,9 @@ export function createApp() {
   });
 
   app.use("/auth", authRouter);
+  app.use("/api/geo", geoRouter);
+  app.use("/api/permissions", permissionsRouter);
+  app.use("/api/users", usersRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

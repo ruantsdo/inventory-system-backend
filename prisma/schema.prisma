@@ -88,7 +88,6 @@ model City {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  users         User[]
   facilities    Facility[]
   suppliers     Supplier[]
   manufacturers Manufacturer[]
@@ -119,8 +118,6 @@ model User {
   addressCity     String?
   state           String?
 
-  cityId String? @db.Uuid
-  city   City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
 
   requestsMade           ItemRequest[]              @relation("requests_made")
   requestsResponsible    ItemRequest[]              @relation("requests_responsible")
@@ -140,7 +137,6 @@ model User {
   professionalDocuments UserProfessionalDocument[]
 
   @@index([email])
-  @@index([cityId])
   @@index([isActive])
 }
 

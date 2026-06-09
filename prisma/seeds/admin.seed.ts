@@ -2,7 +2,7 @@ import argon2 from "argon2";
 import type { PrismaClient } from "../../src/generated/prisma/client";
 import { UserRoleScopeMode } from "../../src/generated/prisma/enums";
 
-export async function seedAdmin(prisma: PrismaClient, adminRoleId: string, cityId?: string) {
+export async function seedAdmin(prisma: PrismaClient, adminRoleId: string) {
   console.log("Seeding admin...");
 
   const email = "admin@local.com";
@@ -22,14 +22,19 @@ export async function seedAdmin(prisma: PrismaClient, adminRoleId: string, cityI
 
     const user = await prisma.user.create({
       data: {
-        fullName: "Administrador",
+        fullName: "Administrador Mestre",
         email,
         passwordHash,
         isActive: true,
-        cityId: cityId ?? null,
         cpf,
-        birthDate: new Date(),
+        zipCode: "00000000",
+        streetAddress: "Servidor Interno",
+        number: "0",
         additionalInfo: "Usuário administrador criado automaticamente.",
+        neighborhood: "Setor de Tecnologia da Informação",
+        addressCity: "Alagoinhas",
+        state: "BA",
+        birthDate: new Date(),
       },
     });
 

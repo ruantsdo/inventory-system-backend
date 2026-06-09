@@ -35,7 +35,7 @@ async function main() {
     throw new Error("ADMIN role not found after seeding roles");
   }
 
-  await seedAdmin(prisma, adminRole.id, city.id);
+  await seedAdmin(prisma, adminRole.id);
 
   console.log("Seed completed successfully.");
 }

@@ -6,7 +6,6 @@ export const AuthRepository = {
     return prisma.user.findUnique({
       where: { cpf, isDeleted: false },
       include: {
-        city: true,
         roles: {
           include: {
             facilities: {
@@ -29,7 +28,6 @@ export const AuthRepository = {
     return prisma.user.findUnique({
       where: { id, isDeleted: false },
       include: {
-        city: true,
         roles: {
           include: {
             facilities: {

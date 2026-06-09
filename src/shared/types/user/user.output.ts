@@ -3,19 +3,17 @@ export type ID = string;
 export interface AuthUserOutput {
   id: ID;
   fullName: string;
-  city?: {
-    id: ID;
-    name: string;
-  } | null;
 }
 
 export interface RoleOutput {
+  id: ID;
   name: string;
   displayName: string;
   description?: string | null;
 }
 
 export interface EffectivePermissionOutput {
+  id: ID;
   name: string;
   scopeMode: string;
   allowedFacilityIds?: string[];

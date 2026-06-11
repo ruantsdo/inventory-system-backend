@@ -16,19 +16,28 @@ function extractSession(
   session: AuthSessionOutput;
   jwtClaims: { roleNames: string[]; permissionNames: string[]; facilitiesNames: string[] };
 } {
-  const activeUserRoles = user.roles.filter((ur) => ur.isActive);
-
-  const roles: RoleOutput[] = activeUserRoles.map((ur) => ({
-    id: ur.role.id,
-    name: ur.role.name,
-    displayName: ur.role.displayName,
-    description: ur.role.description ?? null,
-  }));
-
+  const roles: RoleOutput[] = [];
   const facilitiesMap = new Map<string, SessionFacilityOutput>();
+  const effectiveMap = new Map<
+    string,
+    { id: string; scopeMode: string; allowedFacilityIds: Set<string> | null }
+  >();
+  let isGlobal = true;
+  let hasActiveRoles = false;
 
-  for (const ur of activeUserRoles) {
+  for (const ur of user.roles) {
+    if (!ur.isActive) continue;
+    hasActiveRoles = true;
+
+    roles.push({
+      id: ur.role.id,
+      name: ur.role.name,
+      displayName: ur.role.displayName,
+      description: ur.role.description ?? null,
+    });
+
     if (ur.scopeMode === "FACILITY_SET") {
+      isGlobal = false;
       for (const scope of ur.facilities) {
         if (!facilitiesMap.has(scope.facility.id)) {
           facilitiesMap.set(scope.facility.id, {
@@ -38,25 +47,17 @@ function extractSession(
         }
       }
     }
-  }
 
-  const facilities = [...facilitiesMap.values()];
-
-  const effectiveMap = new Map<
-    string,
-    { id: string; scopeMode: string; allowedFacilityIds: Set<string> | null }
-  >();
-
-  for (const ur of activeUserRoles) {
     for (const rp of ur.role.permissions) {
-      const permId = rp.permission.id;
       const permName = rp.permission.name;
-      const permScopeMode = rp.permission.scopeMode;
-
       const existing = effectiveMap.get(permName);
 
       if (ur.scopeMode === "GLOBAL") {
-        effectiveMap.set(permName, { id: permId, scopeMode: permScopeMode, allowedFacilityIds: null });
+        effectiveMap.set(permName, {
+          id: rp.permission.id,
+          scopeMode: rp.permission.scopeMode,
+          allowedFacilityIds: null,
+        });
       } else if (ur.scopeMode === "FACILITY_SET") {
         if (existing?.allowedFacilityIds === null) {
           continue;
@@ -66,10 +67,18 @@ function extractSession(
         for (const scope of ur.facilities) {
           facilitySet.add(scope.facility.id);
         }
-        effectiveMap.set(permName, { id: permId, scopeMode: permScopeMode, allowedFacilityIds: facilitySet });
+        effectiveMap.set(permName, {
+          id: rp.permission.id,
+          scopeMode: rp.permission.scopeMode,
+          allowedFacilityIds: facilitySet,
+        });
       }
     }
   }
+
+  if (!hasActiveRoles) isGlobal = false;
+
+  const facilities = [...facilitiesMap.values()];
 
   const effectivePermissions: EffectivePermissionOutput[] = [];
   for (const [name, { id, scopeMode, allowedFacilityIds }] of effectiveMap) {
@@ -83,9 +92,6 @@ function extractSession(
   }
 
   const permissionNames = effectivePermissions.map((ep) => ep.name);
-
-  const isGlobal =
-    activeUserRoles.length > 0 && activeUserRoles.every((ur) => ur.scopeMode === "GLOBAL");
 
   const activeContext: ActiveContextOutput = {
     facilityId: null,

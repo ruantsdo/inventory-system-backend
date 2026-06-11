@@ -22,7 +22,6 @@
     "@prisma/client": "^7.4.2",
     "@sentry/node": "^8.47.0",
     "argon2": "^0.41.1",
-    "bcryptjs": "^3.0.3",
     "bullmq": "^5.28.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -39,7 +38,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.8",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

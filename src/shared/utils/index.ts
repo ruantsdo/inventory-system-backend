@@ -1,5 +1,5 @@
 import { extractSession } from "./extractors";
-import { formatDate } from "./formatters";
+import { formatDate, isValidDate } from "./formatters";
 import { parseDurationToMs } from "./timming";
 
-export { parseDurationToMs, extractSession, formatDate };
+export { parseDurationToMs, extractSession, formatDate, isValidDate };

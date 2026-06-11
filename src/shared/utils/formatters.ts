@@ -11,3 +11,12 @@ export function formatDate(date: string): Date {
 
   return new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()));
 }
+
+export function isValidDate(date: string): boolean {
+  try {
+    formatDate(date);
+    return true;
+  } catch {
+    return false;
+  }
+}

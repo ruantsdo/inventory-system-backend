@@ -8,8 +8,4 @@ export const GeoService = {
   async getCitiesWithActiveFacilities() {
     return GeoRepository.findCitiesWithActiveFacilities();
   },
-
-  async getActiveFacilitiesByCity(cityId: string) {
-    return GeoRepository.findActiveFacilitiesByCity(cityId);
-  },
 };

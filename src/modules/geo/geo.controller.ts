@@ -22,17 +22,3 @@ export async function getCitiesWithActiveFacilitiesController(
     next(error);
   }
 }
-
-export async function getActiveFacilitiesByCityController(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const cityId = req.params.cityId as string;
-    const facilities = await GeoService.getActiveFacilitiesByCity(cityId);
-    res.status(200).json({ status: "ok", facilities });
-  } catch (error) {
-    next(error);
-  }
-}

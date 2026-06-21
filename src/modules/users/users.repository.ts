@@ -130,4 +130,51 @@ export const usersRepository = {
       },
     });
   },
+
+  async getAllUsers() {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        cpf: true,
+        phone: true,
+        isActive: true,
+        roles: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+  },
+
+  async getUsersByFacilityId(facilityId: string) {
+    return prisma.user.findMany({
+      where: {
+        roles: {
+          some: {
+            facilities: {
+              some: {
+                facilityId: facilityId,
+              },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        cpf: true,
+        phone: true,
+        isActive: true,
+        roles: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+  },
 };

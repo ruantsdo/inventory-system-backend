@@ -148,4 +148,12 @@ export const usersService = {
 
     return { message: "Conta ativada com sucesso. Você já pode fazer login." };
   },
+
+  async getAllUsers() {
+    return await usersRepository.getAllUsers();
+  },
+
+  async getUsersByFacilityId(facilityId: string) {
+    return await usersRepository.getUsersByFacilityId(facilityId);
+  },
 };

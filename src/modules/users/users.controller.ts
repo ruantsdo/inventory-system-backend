@@ -39,3 +39,26 @@ export async function confirmActivationController(req: Request, res: Response, n
     next(error);
   }
 }
+
+export async function getAllUsersController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await usersService.getAllUsers();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getUsersByFacilityIdController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const facilityId = req.params.facilityId as string;
+    const result = await usersService.getUsersByFacilityId(facilityId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}

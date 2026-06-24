@@ -156,4 +156,32 @@ export const usersService = {
   async getUsersByFacilityId(facilityId: string) {
     return await usersRepository.getUsersByFacilityId(facilityId);
   },
+
+  async getUserById(id: string) {
+    return await usersRepository.findById(id);
+  },
+
+  async getUserByCpf(cpf: string) {
+    return await usersRepository.findByCpf(cpf);
+  },
+
+  async getUserByEmail(email: string) {
+    return await usersRepository.findByEmail(email);
+  },
+
+  async getBasicUserDataById(id: string) {
+    return await usersRepository.findBasicUserDataById(id);
+  },
+
+  async getBasicUserDataByCpf(cpf: string) {
+    return await usersRepository.findBasicUserDataByCpf(cpf);
+  },
+
+  async getBasicUserDataByEmail(email: string) {
+    return await usersRepository.findBasicUserDataByEmail(email);
+  },
+
+  async getSelfData(id: string) {
+    return await usersRepository.findBasicUserDataById(id);
+  },
 };

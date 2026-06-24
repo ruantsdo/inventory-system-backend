@@ -5,6 +5,10 @@ import {
   confirmActivationController,
   createUserController,
   getAllUsersController,
+  getBasicUserDataByCpfController,
+  getBasicUserDataByEmailController,
+  getBasicUserDataByIdController,
+  getSelfDataController,
   getUsersByFacilityIdController,
   resendActivationController,
 } from "./users.controller";
@@ -22,6 +26,25 @@ router.get(
   authenticate,
   authorize("users.view"),
   getUsersByFacilityIdController
+);
+router.get("/get/selfData/", authenticate, getSelfDataController);
+router.get(
+  "/get/byId/:targetId",
+  authenticate,
+  authorize("users.view"),
+  getBasicUserDataByIdController
+);
+router.get(
+  "/get/byCpf/:targetCpf",
+  authenticate,
+  authorize("users.view"),
+  getBasicUserDataByCpfController
+);
+router.get(
+  "/get/byEmail/:targetEmail",
+  authenticate,
+  authorize("users.view"),
+  getBasicUserDataByEmailController
 );
 
 export { router as usersRouter };

@@ -58,14 +58,34 @@ export type ProfessionalDocumentType =
   | "OTHER";
 
 export interface UserRolePayload {
-  roleId: ID;
-  facilities?: ID[];
+  roleName: string;
+  facilities?: string[] | undefined;
+  permissionNames?: string[] | undefined;
 }
 
 export interface UserProfessionalDocumentPayload {
   documentType: ProfessionalDocumentType;
   documentNumber: string;
-  issuerState?: string;
+  issuerState?: string | undefined;
+}
+
+export interface UserDetailPayload {
+  fullName: string;
+  email: string;
+  cpf: string;
+  birthDate: string;
+  phone?: string | undefined;
+
+  zipCode?: string | undefined;
+  streetAddress?: string | undefined;
+  number?: string | undefined;
+  additionalInfo?: string | undefined;
+  neighborhood?: string | undefined;
+  addressCity?: string | undefined;
+  state?: string | undefined;
+
+  roles: UserRolePayload[];
+  professionalDocuments?: UserProfessionalDocumentPayload[] | undefined;
 }
 
 export interface CreateUserPayload {
@@ -74,6 +94,16 @@ export interface CreateUserPayload {
   cpf: string;
   birthDate: string;
   phone?: string;
+
+  cityId?: string;
+  zipCode?: string;
+  streetAddress?: string;
+  number?: string;
+  additionalInfo?: string;
+  neighborhood?: string;
+  addressCity?: string;
+  state?: string;
+
   roles: UserRolePayload[];
   professionalDocuments?: UserProfessionalDocumentPayload[];
 }

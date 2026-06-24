@@ -40,7 +40,7 @@ export async function confirmActivationController(req: Request, res: Response, n
   }
 }
 
-export async function getAllUsersController(req: Request, res: Response, next: NextFunction) {
+export async function getAllUsersController(_req: Request, res: Response, next: NextFunction) {
   try {
     const result = await usersService.getAllUsers();
     res.json(result);
@@ -57,6 +57,66 @@ export async function getUsersByFacilityIdController(
   try {
     const facilityId = req.params.facilityId as string;
     const result = await usersService.getUsersByFacilityId(facilityId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getSelfDataController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const targetId = req.user?.id;
+
+    if (!targetId) {
+      throw unauthorized("Usuário não autenticado", "Não autenticado");
+    }
+
+    const result = await usersService.getSelfData(targetId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBasicUserDataByIdController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetId = req.params.targetId as string;
+
+    const result = await usersService.getBasicUserDataById(targetId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBasicUserDataByCpfController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetCpf = req.params.targetCpf as string;
+
+    const result = await usersService.getBasicUserDataByCpf(targetCpf);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBasicUserDataByEmailController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetEmail = req.params.targetEmail as string;
+
+    const result = await usersService.getBasicUserDataByEmail(targetEmail);
     res.json(result);
   } catch (error) {
     next(error);

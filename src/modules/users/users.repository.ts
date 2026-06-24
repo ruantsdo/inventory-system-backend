@@ -1,9 +1,68 @@
+import type { Prisma } from "../../generated/prisma/client";
 import type { ProfessionalDocumentType } from "../../generated/prisma/enums";
 import { prisma } from "../../shared/db/prisma";
-import { formatDate } from "../../shared/utils/formatters";
+import type { UserDetailPayload } from "../../shared/types/api.contracts";
+import { formatDate, formatToBRDate } from "../../shared/utils/formatters";
 import type { CreateUserInput } from "./users.schema";
 
+const detailQueryIncludes = {
+  roles: {
+    include: {
+      facilities: {
+        include: {
+          facility: true,
+        },
+      },
+      role: {
+        include: {
+          permissions: {
+            include: {
+              permission: true,
+            },
+          },
+        },
+      },
+    },
+  },
+  professionalDocuments: true,
+} as const;
+
+type UserWithRelations = Prisma.UserGetPayload<{
+  include: typeof detailQueryIncludes;
+}>;
+
+function mapToUserDetail(user: UserWithRelations): UserDetailPayload {
+  return {
+    fullName: user.fullName,
+    email: user.email,
+    cpf: user.cpf,
+    birthDate: formatToBRDate(user.birthDate),
+    phone: user.phone ?? undefined,
+    zipCode: user.zipCode ?? undefined,
+    streetAddress: user.streetAddress ?? undefined,
+    number: user.number ?? undefined,
+    additionalInfo: user.additionalInfo ?? undefined,
+    neighborhood: user.neighborhood ?? undefined,
+    addressCity: user.addressCity ?? undefined,
+    state: user.state ?? undefined,
+    roles: user.roles.map((userRole) => ({
+      roleName: userRole.role.displayName,
+      facilities: userRole.facilities.map((f) => f.facility.name),
+      permissionNames: userRole.role.permissions.map((p) => p.permission.displayName),
+    })),
+    professionalDocuments: user.professionalDocuments.map((doc) => ({
+      documentType: doc.documentType as ProfessionalDocumentType,
+      documentNumber: doc.documentNumber,
+      issuerState: doc.issuerState ?? undefined,
+    })),
+  };
+}
+
 export const usersRepository = {
+  async findById(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
+
   async findByCpf(cpf: string) {
     return prisma.user.findUnique({ where: { cpf } });
   },
@@ -12,8 +71,28 @@ export const usersRepository = {
     return prisma.user.findUnique({ where: { email } });
   },
 
-  async findById(id: string) {
-    return prisma.user.findUnique({ where: { id } });
+  async findBasicUserDataById(id: string): Promise<UserDetailPayload | null> {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: detailQueryIncludes,
+    });
+    return user ? mapToUserDetail(user) : null;
+  },
+
+  async findBasicUserDataByCpf(cpf: string): Promise<UserDetailPayload | null> {
+    const user = await prisma.user.findUnique({
+      where: { cpf },
+      include: detailQueryIncludes,
+    });
+    return user ? mapToUserDetail(user) : null;
+  },
+
+  async findBasicUserDataByEmail(email: string): Promise<UserDetailPayload | null> {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: detailQueryIncludes,
+    });
+    return user ? mapToUserDetail(user) : null;
   },
 
   async getRolePermissions(roleIds: string[]) {

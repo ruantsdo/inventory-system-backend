@@ -1,4 +1,5 @@
 import type { AuthRepository } from "@/modules/auth/auth.repository";
+import { prisma } from "@/shared/db/prisma";
 import type {
   ActiveContextOutput,
   AuthSessionOutput,
@@ -8,14 +9,33 @@ import type {
 } from "@/shared/types/user/user.output";
 
 type UserWithRoles = NonNullable<Awaited<ReturnType<typeof AuthRepository.findUserByCPF>>>;
+export type ActionContext = {
+  resource: string;
+  action: string;
+  scope?: string | undefined;
+};
 
-function extractSession(
+export const VALID_ACTIONS = [
+  "create",
+  "update",
+  "restore",
+  "activate",
+  "deactivate",
+  "delete",
+] as const;
+export type Actions = (typeof VALID_ACTIONS)[number];
+
+export function isAction(action: unknown): action is Actions {
+  return typeof action === "string" && (VALID_ACTIONS as readonly string[]).includes(action);
+}
+
+export async function extractSession(
   user: UserWithRoles,
   expiresAt?: string | null
-): {
+): Promise<{
   session: AuthSessionOutput;
   jwtClaims: { roleNames: string[]; permissionNames: string[]; facilitiesNames: string[] };
-} {
+}> {
   const roles: RoleOutput[] = [];
   const facilitiesMap = new Map<string, SessionFacilityOutput>();
   const effectiveMap = new Map<
@@ -76,6 +96,27 @@ function extractSession(
     }
   }
 
+  const isRoot = user.roles.some((ur) => ur.isActive && ur.role.governanceLevel === "ROOT");
+
+  if (isRoot) {
+    isGlobal = true;
+    const allPermissions = await prisma.permission.findMany({
+      select: {
+        id: true,
+        name: true,
+        scopeMode: true,
+      },
+    });
+
+    for (const perm of allPermissions) {
+      effectiveMap.set(perm.name, {
+        id: perm.id,
+        scopeMode: perm.scopeMode,
+        allowedFacilityIds: null,
+      });
+    }
+  }
+
   if (!hasActiveRoles) isGlobal = false;
 
   const facilities = [...facilitiesMap.values()];
@@ -125,4 +166,16 @@ function extractSession(
   };
 }
 
-export { extractSession };
+export function extractAction(permission: string): ActionContext {
+  const [resource, action, scope] = permission.split(".");
+
+  if (!resource || !action) {
+    throw new Error(`Permissão inválida: ${permission}.`);
+  }
+
+  return {
+    resource,
+    action,
+    scope,
+  };
+}

@@ -55,6 +55,18 @@ enum UserRoleScopeMode {
   FACILITY_SET
 }
 
+enum RoleCategory {
+  FUNCTIONAL
+  ADMINISTRATIVE
+}
+
+enum GovernanceLevel {
+  ROOT
+  SUPER_ADMIN
+  SYSTEM_ADMIN
+  MANAGER
+}
+
 enum ProfessionalDocumentType {
   CRM
   CRMV
@@ -174,6 +186,12 @@ model Role {
   name        String  @unique
   displayName String
   description String?
+
+  category RoleCategory
+
+  governanceLevel GovernanceLevel?
+
+  isProtected Boolean @default(false)
 
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz

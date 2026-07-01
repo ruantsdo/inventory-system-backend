@@ -28,7 +28,7 @@ async function main() {
   await seedFacilities(prisma, city.id);
 
   const adminRole = await prisma.role.findUnique({
-    where: { name: "ADMIN" },
+    where: { name: "ADMIN_ROOT" },
   });
 
   if (!adminRole) {

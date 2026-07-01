@@ -21,6 +21,24 @@ const purchasesPermissions: PermissionSeed[] = [
     description: "Permite registrar o recebimento de compras.",
     scopeMode: PermissionScopeMode.GLOBAL,
   },
+  {
+    name: "purchases.authorize",
+    displayName: "Autorizar compras",
+    description: "Permite autorizar pedidos de compra pendentes.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
+  {
+    name: "purchases.cancel",
+    displayName: "Cancelar compras",
+    description: "Permite cancelar pedidos de compra.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
+  {
+    name: "purchases.close",
+    displayName: "Fechar compras",
+    description: "Permite encerrar pedidos de compra finalizados.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
 ];
 
 export async function seedPurchasesPermissions(prisma: PrismaClient) {

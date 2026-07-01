@@ -3,6 +3,7 @@ import { seedAuditPermissions } from "./audit.seed";
 import { seedBatchesPermissions } from "./batches.seed";
 import { seedCityPermissions } from "./cities.seed";
 import { seedControlledItemsPermissions } from "./controlledItems.seed";
+import { seedFacilityPermissions } from "./facilities.seed";
 import { seedInventoryPermissions } from "./inventory.seed";
 import { seedItemsPermissions } from "./items.seed";
 import { seedItemTypesPermissions } from "./itemTypes.seed";
@@ -20,6 +21,7 @@ export async function seedPermissions(prisma: PrismaClient) {
   await seedBatchesPermissions(prisma);
   await seedCityPermissions(prisma);
   await seedControlledItemsPermissions(prisma);
+  await seedFacilityPermissions(prisma);
   await seedInventoryPermissions(prisma);
   await seedItemsPermissions(prisma);
   await seedItemTypesPermissions(prisma);

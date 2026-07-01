@@ -45,6 +45,18 @@ const inventoryPermissions: PermissionSeed[] = [
     description: "Permite lançar entradas no estoque.",
     scopeMode: PermissionScopeMode.FACILITY,
   },
+  {
+    name: "inventory.count",
+    displayName: "Contar estoque",
+    description: "Permite registrar contagens de estoque físico (inventários).",
+    scopeMode: PermissionScopeMode.FACILITY,
+  },
+  {
+    name: "inventory.reconcile",
+    displayName: "Reconciliar estoque",
+    description: "Permite reconciliar saldos e divergências de estoque identificadas.",
+    scopeMode: PermissionScopeMode.FACILITY,
+  },
 ];
 
 export async function seedInventoryPermissions(prisma: PrismaClient) {

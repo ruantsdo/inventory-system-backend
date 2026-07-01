@@ -45,6 +45,18 @@ const controlledItemsPermissions: PermissionSeed[] = [
     description: "Permite registrar recebimento de itens controlados.",
     scopeMode: PermissionScopeMode.FACILITY,
   },
+  {
+    name: "controlled.audit",
+    displayName: "Auditar itens controlados",
+    description: "Permite realizar auditorias e conferências em receitas e movimentações de itens controlados.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
+  {
+    name: "controlled.view_all",
+    displayName: "Visualizar todos os controlados",
+    description: "Permite visualizar registros de itens controlados de todas as unidades.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
 ];
 
 export async function seedControlledItemsPermissions(prisma: PrismaClient) {

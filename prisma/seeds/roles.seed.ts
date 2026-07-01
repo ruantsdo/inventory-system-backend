@@ -1,333 +1,496 @@
 import type { PrismaClient } from "../../src/generated/prisma/client";
+import type { GovernanceLevel, RoleCategory } from "../../src/generated/prisma/enums";
 
 type RoleSeed = {
   name: string;
   displayName: string;
   description: string;
   permissions: string[];
+  category: RoleCategory;
+  governanceLevel?: GovernanceLevel;
+  isProtected?: boolean;
 };
 
-const roles: RoleSeed[] = [
+const administrativeRoles: RoleSeed[] = [
   {
-    name: "ADMIN",
+    name: "ADMIN_ROOT",
+    displayName: "Administrador ROOT",
+    description: "Conta raiz do sistema. Possui autoridade máxima e é imutável.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "ROOT",
+    isProtected: true,
+    permissions: ["*"],
+  },
+
+  {
+    name: "SUPER_ADMIN",
     displayName: "Super Administrador",
-    description: "Acesso total ao sistema.",
+    description:
+      "Administração global da plataforma. Pode gerenciar todos os usuários e configurações, exceto o ROOT.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "SUPER_ADMIN",
+    isProtected: true,
     permissions: [
-      "cities.view",
-      "cities.create",
-      "cities.update",
-      "cities.delete",
-      "cities.restore",
-      "manufacturers.view",
-      "manufacturers.create",
-      "manufacturers.update",
-      "manufacturers.delete",
-      "manufacturers.restore",
-      "suppliers.view",
-      "suppliers.create",
-      "suppliers.update",
-      "suppliers.delete",
-      "suppliers.restore",
-      "item_types.view",
-      "item_types.create",
-      "item_types.update",
-      "item_types.delete",
-      "item_types.restore",
-      "items.view",
-      "items.create",
-      "items.update",
-      "items.delete",
-      "items.restore",
-      "items.manage_attributes",
-      "items.activate",
-      "items.deactivate",
-      "batches.view",
-      "batches.create",
-      "batches.update",
-      "batches.delete",
-      "batches.restore",
-      "batches.receive",
-      "batches.quarantine",
-      "batches.release",
-      "batches.expire",
-      "batches.adjust",
-      "inventory.view",
-      "inventory.create_movement",
-      "inventory.adjust",
-      "inventory.transfer",
-      "inventory.reserve",
-      "inventory.release",
-      "inventory.receive",
-      "requests.view",
-      "requests.create",
-      "requests.approve",
-      "requests.fulfill",
-      "requests.cancel",
-      "controlled.view",
-      "controlled.request",
-      "controlled.authorize",
-      "controlled.authorize_any_facility",
-      "controlled.dispatch",
-      "controlled.deliver",
-      "controlled.receive",
       "users.view",
       "users.create",
       "users.update",
       "users.delete",
       "users.restore",
-      "roles.manage",
-      "permissions.manage",
+      "users.activate",
+      "users.deactivate",
+      "users.manage_scope",
+      "users.manage_facilities",
+      "users.manage_admin_roles",
+
+      "roles.assign",
+      "roles.unassign",
+      "roles.create",
+      "roles.update",
+      "roles.delete",
+      "roles.restore",
+
+      "permissions.view",
+      "permissions.grant",
+      "permissions.revoke",
+
+      "facilities.view",
+      "facilities.create",
+      "facilities.update",
+      "facilities.delete",
+      "facilities.restore",
+      "facilities.activate",
+      "facilities.deactivate",
+
       "audit.view",
+      "audit.export",
+      "audit.user_actions",
+      "audit.inventory_actions",
+      "audit.security_events",
+
       "reports.run",
       "reports.export",
+      "reports.view_all_facilities",
+
       "system.settings",
+      "system.logs",
+      "system.health",
+      "system.backup",
+      "system.restore",
+
       "data.import",
       "data.export",
-      "purchases.create",
-      "purchases.view",
-      "purchases.receive",
     ],
   },
+
+  {
+    name: "SYSTEM_ADMIN",
+    displayName: "Administrador de Sistema",
+    description:
+      "Responsável pela administração operacional do sistema. Não pode alterar Super Administradores.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "SYSTEM_ADMIN",
+    permissions: [
+      "users.view",
+      "users.create",
+      "users.update",
+      "users.restore",
+      "users.activate",
+      "users.deactivate",
+      "users.manage_scope",
+      "users.manage_facilities",
+
+      "roles.assign",
+      "roles.unassign",
+
+      "permissions.view",
+
+      "facilities.view",
+      "facilities.create",
+      "facilities.update",
+      "facilities.activate",
+      "facilities.deactivate",
+
+      "audit.view",
+      "audit.user_actions",
+      "audit.security_events",
+
+      "reports.run",
+      "reports.export",
+      "reports.view_all_facilities",
+
+      "system.settings",
+      "system.logs",
+      "system.health",
+
+      "data.import",
+      "data.export",
+    ],
+  },
+
+  {
+    name: "MANAGER",
+    displayName: "Gerente",
+    description: "Gerente administrativo genérico. Atua dentro do escopo atribuído.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "MANAGER",
+    permissions: [
+      "users.view",
+      "users.create",
+      "users.update",
+      "users.activate",
+      "users.deactivate",
+
+      "roles.assign",
+      "roles.unassign",
+
+      "reports.run",
+    ],
+  },
+
+  {
+    name: "RH_MANAGER",
+    displayName: "Gerente de RH",
+    description: "Responsável pela gestão de usuários, lotações e vínculos funcionais.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "MANAGER",
+    permissions: [
+      "users.view",
+      "users.create",
+      "users.update",
+      "users.activate",
+      "users.deactivate",
+
+      "users.manage_facilities",
+
+      "roles.assign",
+      "roles.unassign",
+
+      "reports.run",
+    ],
+  },
+
+  {
+    name: "ADMIN_MANAGER",
+    displayName: "Gerente Administrativo",
+    description:
+      "Responsável pela gestão administrativa e operacional das unidades sob sua responsabilidade.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "MANAGER",
+    permissions: [
+      "users.view",
+
+      "facilities.view",
+      "facilities.update",
+
+      "reports.run",
+      "reports.export",
+
+      "inventory.view",
+      "requests.view",
+      "batches.view",
+    ],
+  },
+
+  {
+    name: "FACILITY_MANAGER",
+    displayName: "Gestor de Unidade",
+    description: "Responsável pela operação completa da unidade dentro do seu escopo.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "MANAGER",
+    permissions: [
+      "users.view",
+
+      "inventory.view",
+      "requests.view",
+      "batches.view",
+      "controlled.view",
+
+      "reports.run",
+      "reports.export",
+    ],
+  },
+
+  {
+    name: "COMPLIANCE_MANAGER",
+    displayName: "Gestor de Compliance",
+    description: "Responsável por auditoria, conformidade e rastreabilidade das operações.",
+    category: "ADMINISTRATIVE",
+    governanceLevel: "MANAGER",
+    permissions: [
+      "audit.view",
+      "audit.export",
+
+      "audit.user_actions",
+      "audit.inventory_actions",
+      "audit.security_events",
+
+      "controlled.audit",
+
+      "reports.run",
+      "reports.export",
+      "reports.view_all_facilities",
+    ],
+  },
+
+  {
+    name: "AUDITOR",
+    displayName: "Auditor",
+    description:
+      "Consulta auditorias, eventos de segurança e relatórios sem permissão de alteração.",
+    category: "ADMINISTRATIVE",
+    permissions: [
+      "audit.view",
+      "audit.export",
+
+      "audit.user_actions",
+      "audit.inventory_actions",
+      "audit.security_events",
+
+      "controlled.audit",
+
+      "reports.run",
+      "reports.export",
+
+      "items.view",
+      "inventory.view",
+      "requests.view",
+      "batches.view",
+      "controlled.view",
+    ],
+  },
+
+  {
+    name: "VIEWER",
+    displayName: "Visualizador",
+    description: "Acesso somente leitura ao sistema.",
+    category: "ADMINISTRATIVE",
+
+    permissions: [
+      "items.view",
+      "inventory.view",
+      "batches.view",
+      "requests.view",
+      "controlled.view",
+      "reports.run",
+    ],
+  },
+];
+
+const functionalRoles: RoleSeed[] = [
   {
     name: "ALMOXARIFADO_PRINCIPAL",
     displayName: "Almoxarifado Principal",
-    description: "Responsável pela estrutura mestre e coordenação central do estoque.",
+    description:
+      "Responsável pela gestão central do estoque, recebimento, distribuição e controle de lotes.",
+    category: "FUNCTIONAL",
     permissions: [
-      "cities.view",
-      "manufacturers.view",
-      "manufacturers.create",
-      "manufacturers.update",
-      "manufacturers.delete",
-      "manufacturers.restore",
-      "suppliers.view",
-      "suppliers.create",
-      "suppliers.update",
-      "suppliers.delete",
-      "suppliers.restore",
-      "item_types.view",
-      "item_types.create",
-      "item_types.update",
-      "item_types.delete",
-      "item_types.restore",
-      "items.view",
-      "items.create",
-      "items.update",
-      "items.delete",
-      "items.restore",
-      "items.manage_attributes",
-      "items.activate",
-      "items.deactivate",
+      "inventory.view",
+      "inventory.create_movement",
+      "inventory.adjust",
+      "inventory.transfer",
+      "inventory.reserve",
+      "inventory.release",
+      "inventory.receive",
+
       "batches.view",
       "batches.create",
       "batches.update",
-      "batches.delete",
-      "batches.restore",
       "batches.receive",
       "batches.quarantine",
       "batches.release",
       "batches.expire",
       "batches.adjust",
-      "inventory.view",
-      "inventory.create_movement",
-      "inventory.adjust",
-      "inventory.transfer",
-      "inventory.reserve",
-      "inventory.release",
-      "inventory.receive",
+
+      "items.view",
+
       "requests.view",
-      "requests.approve",
       "requests.fulfill",
-      "controlled.view",
-      "controlled.request",
-      "controlled.authorize",
-      "controlled.dispatch",
-      "controlled.deliver",
-      "controlled.receive",
-      "reports.run",
     ],
   },
+
   {
     name: "ALMOXARIFADO_LOCAL",
     displayName: "Almoxarifado Local",
-    description: "Opera o estoque da unidade vinculada ao usuário.",
+    description: "Responsável pela movimentação e controle de estoque da unidade.",
+    category: "FUNCTIONAL",
     permissions: [
-      "items.view",
-      "batches.view",
-      "batches.receive",
-      "batches.adjust",
       "inventory.view",
       "inventory.create_movement",
-      "inventory.adjust",
       "inventory.transfer",
       "inventory.reserve",
       "inventory.release",
       "inventory.receive",
-      "requests.view",
-      "requests.fulfill",
-      "controlled.view",
-      "controlled.receive",
-      "controlled.deliver",
-    ],
-  },
-  {
-    name: "WAREHOUSE_LEADER",
-    displayName: "Líder de Armazém",
-    description: "Responsável pela operação e edição dos dados do próprio armazém.",
-    permissions: [
-      "items.view",
-      "items.update",
-      "inventory.view",
-      "inventory.adjust",
-      "batches.view",
-      "batches.update",
-      "requests.view",
-      "requests.approve",
-      "reports.run",
-    ],
-  },
-  {
-    name: "WAREHOUSE_MANAGER",
-    displayName: "Gerente de Armazéns",
-    description: "Coordena múltiplas unidades e supervisiona estoque de armazéns atribuídos.",
-    permissions: [
-      "items.view",
-      "items.update",
-      "inventory.view",
-      "inventory.adjust",
-      "inventory.transfer",
-      "requests.view",
-      "requests.approve",
-      "batches.view",
-      "reports.run",
-    ],
-  },
-  {
-    name: "PROCUREMENT",
-    displayName: "Compras",
-    description: "Responsável por fornecedores, fabricantes e processos de compra.",
-    permissions: [
-      "manufacturers.view",
-      "manufacturers.create",
-      "manufacturers.update",
-      "manufacturers.delete",
-      "manufacturers.restore",
-      "suppliers.view",
-      "suppliers.create",
-      "suppliers.update",
-      "suppliers.delete",
-      "suppliers.restore",
-      "items.view",
-      "item_types.view",
-      "batches.view",
-      "purchases.create",
-      "purchases.view",
-      "purchases.receive",
-      "reports.run",
-    ],
-  },
-  {
-    name: "RECEPTIONIST",
-    displayName: "Recepcionista",
-    description: "Recebe itens e pode registrar entrega conforme o fluxo permitido.",
-    permissions: [
-      "inventory.view",
-      "inventory.receive",
+
       "batches.view",
       "batches.receive",
+
       "items.view",
+
       "requests.view",
-      "controlled.view",
-      "controlled.receive",
-      "controlled.deliver",
+      "requests.fulfill",
     ],
   },
+
   {
-    name: "DELIVERER",
-    displayName: "Entregador",
-    description: "Responsável por despachar e entregar itens autorizados.",
-    permissions: ["requests.view", "controlled.view", "controlled.deliver", "inventory.view"],
-  },
-  {
-    name: "MEDIC",
-    displayName: "Médico",
-    description: "Pode solicitar e autorizar itens controlados em qualquer unidade.",
+    name: "PROCUREMENT",
+    displayName: "Comprador",
+    description: "Responsável pelos processos de compra e recebimento de materiais.",
+    category: "FUNCTIONAL",
     permissions: [
+      "suppliers.view",
+
+      "purchases.view",
+      "purchases.create",
+      "purchases.receive",
+
       "items.view",
-      "inventory.view",
-      "controlled.view",
-      "controlled.request",
-      "controlled.authorize_any_facility",
-      "requests.view",
+      "manufacturers.view",
     ],
   },
+
   {
     name: "PHARMACIST",
     displayName: "Farmacêutico",
-    description: "Executa validação e liberação operacional de itens controlados.",
+    description: "Responsável técnico pelo controle de medicamentos e materiais farmacêuticos.",
+    category: "FUNCTIONAL",
     permissions: [
-      "items.view",
       "inventory.view",
-      "controlled.view",
-      "controlled.dispatch",
-      "controlled.deliver",
-      "controlled.receive",
-      "requests.view",
-    ],
-  },
-  {
-    name: "CONTROLLED_AUTHORIZER",
-    displayName: "Autorizador de Controlados",
-    description: "Autoriza itens controlados na unidade vinculada ao usuário.",
-    permissions: [
-      "items.view",
-      "inventory.view",
+
       "controlled.view",
       "controlled.request",
       "controlled.authorize",
-      "requests.view",
-    ],
-  },
-  {
-    name: "AUDITOR",
-    displayName: "Auditor",
-    description: "Consulta dados, relatórios e trilhas de auditoria.",
-    permissions: [
-      "audit.view",
-      "reports.run",
-      "reports.export",
-      "items.view",
-      "inventory.view",
-      "requests.view",
+      "controlled.dispatch",
+      "controlled.receive",
+
       "batches.view",
-      "controlled.view",
-    ],
-  },
-  {
-    name: "VIEWER",
-    displayName: "Visualizador",
-    description: "Apenas leitura de dados do sistema.",
-    permissions: [
+
       "items.view",
-      "inventory.view",
-      "batches.view",
-      "requests.view",
-      "controlled.view",
     ],
   },
+
+  {
+    name: "MEDIC",
+    displayName: "Médico",
+    description: "Profissional médico autorizado a solicitar materiais e medicamentos.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "inventory.view",
+
+      "controlled.view",
+      "controlled.request",
+
+      "requests.view",
+      "requests.create",
+
+      "items.view",
+    ],
+  },
+
+  {
+    name: "NURSE",
+    displayName: "Enfermeiro",
+    description:
+      "Profissional de enfermagem autorizado a solicitar materiais e executar atividades assistenciais.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "inventory.view",
+
+      "requests.view",
+      "requests.create",
+
+      "controlled.view",
+
+      "items.view",
+    ],
+  },
+
+  {
+    name: "CONTROLLED_AUTHORIZER",
+    displayName: "Autorizador de Controlados",
+    description: "Responsável pela autorização de dispensação de medicamentos controlados.",
+    category: "FUNCTIONAL",
+    permissions: ["controlled.view", "controlled.authorize", "controlled.authorize_any_facility"],
+  },
+
   {
     name: "INVENTORY_ANALYST",
     displayName: "Analista de Inventário",
-    description: "Analisa estoque, relatórios e propõe ajustes.",
+    description: "Responsável por conferências, inventários e conciliações de estoque.",
+    category: "FUNCTIONAL",
     permissions: [
-      "items.view",
       "inventory.view",
-      "inventory.adjust",
-      "reports.run",
-      "reports.export",
+
+      "inventory.count",
+      "inventory.reconcile",
+
       "batches.view",
+
+      "items.view",
+
+      "reports.run",
+    ],
+  },
+
+  {
+    name: "QUALITY_ANALYST",
+    displayName: "Analista de Qualidade",
+    description: "Responsável por quarentena, liberação e acompanhamento de validade de lotes.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "batches.view",
+
+      "batches.quarantine",
+      "batches.release",
+      "batches.expire",
+
+      "reports.run",
+    ],
+  },
+
+  {
+    name: "DELIVERER",
+    displayName: "Entregador",
+    description: "Responsável pela movimentação física e entrega de medicamentos e materiais.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "inventory.view",
+
+      "controlled.view",
+      "controlled.deliver",
+
+      "requests.view",
+    ],
+  },
+
+  {
+    name: "RECEPTIONIST",
+    displayName: "Recepcionista",
+    description: "Responsável pelo atendimento e abertura de solicitações.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "requests.view",
+      "requests.create",
+
+      "items.view",
+    ],
+  },
+
+  {
+    name: "VIEWER",
+    displayName: "Consulta Operacional",
+    description: "Acesso somente leitura aos módulos operacionais permitidos.",
+    category: "FUNCTIONAL",
+    permissions: [
+      "inventory.view",
+      "batches.view",
+      "items.view",
+      "requests.view",
+      "controlled.view",
     ],
   },
 ];
+
+const roles = [...administrativeRoles, ...functionalRoles];
 
 export async function seedRoles(prisma: PrismaClient) {
   console.log("Seeding roles...");
@@ -346,11 +509,15 @@ export async function seedRoles(prisma: PrismaClient) {
       update: {
         displayName: role.displayName,
         description: role.description,
+        category: role.category,
+        governanceLevel: role.governanceLevel,
       },
       create: {
         name: role.name,
         displayName: role.displayName,
         description: role.description,
+        category: role.category,
+        governanceLevel: role.governanceLevel,
       },
     });
 

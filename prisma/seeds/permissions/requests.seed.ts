@@ -33,6 +33,12 @@ const requestsPermissions: PermissionSeed[] = [
     description: "Permite cancelar solicitações abertas.",
     scopeMode: PermissionScopeMode.FACILITY,
   },
+  {
+    name: "requests.reject",
+    displayName: "Rejeitar solicitações",
+    description: "Permite rejeitar solicitações de itens pendentes.",
+    scopeMode: PermissionScopeMode.FACILITY,
+  },
 ];
 
 export async function seedRequestsPermissions(prisma: PrismaClient) {

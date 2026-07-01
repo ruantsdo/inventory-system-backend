@@ -46,7 +46,7 @@ export const AuthService = {
 
     const expiresAt = new Date(now + refreshExpiresMs).toISOString();
 
-    const { session, jwtClaims } = extractSession(user, expiresAt);
+    const { session, jwtClaims } = await extractSession(user, expiresAt);
 
     const accessToken = await new SignJWT(jwtClaims)
       .setProtectedHeader({ alg: "HS256" })
@@ -110,7 +110,7 @@ export const AuthService = {
       throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
     }
 
-    const { jwtClaims, session } = extractSession(user);
+    const { jwtClaims, session } = await extractSession(user);
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
@@ -151,7 +151,7 @@ export const AuthService = {
       return { authenticated: false as const, session: null };
     }
 
-    const { session } = extractSession(user);
+    const { session } = await extractSession(user);
 
     return {
       authenticated: true as const,
@@ -221,6 +221,7 @@ export const AuthService = {
 
     const passwordHash = await argon2.hash(newPassword);
     await AuthRepository.resetPassword(userId, passwordHash);
+    await this.revokeAllUserSessions(userId);
 
     return;
   },

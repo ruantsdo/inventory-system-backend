@@ -5,7 +5,15 @@ export const GeoService = {
     return GeoRepository.findAllCities();
   },
 
-  async getCitiesWithActiveFacilities() {
-    return GeoRepository.findCitiesWithActiveFacilities();
+  async getAllCitiesWithActiveFacilities() {
+    return GeoRepository.findAllCitiesWithActiveFacilities();
+  },
+
+  async findAuthorizedCitiesIDs(callerId: string) {
+    return GeoRepository.findAuthorizedCities(callerId);
+  },
+
+  async getCitiesWithActiveFacilities(validCitiesIds: string[]) {
+    return GeoRepository.findCitiesWithActiveFacilities(validCitiesIds);
   },
 };

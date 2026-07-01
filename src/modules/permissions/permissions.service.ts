@@ -1,3 +1,4 @@
+import { checkIfRootUser } from "@/shared/utils/verifiers";
 import { PermissionsRepository } from "./permissions.repository";
 
 export const PermissionsService = {
@@ -6,6 +7,10 @@ export const PermissionsService = {
   },
 
   async getPermissionsForUser(userId: string) {
+    const isRoot = await checkIfRootUser(userId);
+    if (isRoot) {
+      return PermissionsRepository.findAllPermissions();
+    }
     return PermissionsRepository.findPermissionsByUserId(userId);
   },
 

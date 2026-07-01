@@ -3,6 +3,18 @@ import { prisma } from "../../shared/db/prisma";
 export const PermissionsRepository = {
   async findAllRoles() {
     return prisma.role.findMany({
+      where: {
+        OR: [
+          {
+            governanceLevel: {
+              not: "ROOT",
+            },
+          },
+          {
+            governanceLevel: null,
+          },
+        ],
+      },
       include: {
         permissions: {
           include: {

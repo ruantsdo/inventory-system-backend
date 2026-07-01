@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
+import type { UpdateUserPayload } from "@/shared/types/api.contracts";
 import argon2 from "argon2";
-import { env } from "../../config/env";
-import { logger } from "../../config/logger";
 import { getRedis } from "../../config/redis";
 import { badRequest, forbidden } from "../../shared/errors/AppError";
+import { generateAndSaveActivationToken } from "../../shared/utils";
 import { formatDate } from "../../shared/utils/formatters";
+import { AuthService } from "../auth/auth.service";
+import { PermissionsService } from "../permissions/permissions.service";
 import { usersRepository } from "./users.repository";
 import type {
   ConfirmActivationInput,
@@ -20,18 +22,17 @@ export const usersService = {
     ]);
 
     if (existingCpf) {
-      throw badRequest("CPF já cadastrado no sistema.");
+      throw badRequest("CPF já cadastrado no sistema.", "Usuário duplicado");
     }
     if (existingEmail) {
-      throw badRequest("E-mail já cadastrado no sistema.");
+      throw badRequest("E-mail já cadastrado no sistema.", "Usuário duplicado");
     }
 
-    const adminPermissions = await usersRepository.getUserPermissions(requestMakerId);
-    const adminPermsSet = new Set(adminPermissions);
-
-    const canCreateUsers = adminPermissions.includes("users.create");
+    const adminPermissions = await PermissionsService.getPermissionsForUser(requestMakerId);
+    const adminPermsSet = new Set(adminPermissions.map((p) => p.name));
+    const canCreateUsers = adminPermsSet.has("users.create");
     if (!canCreateUsers) {
-      throw forbidden("Você não tem autorização para criar usuários", "Sem autorização");
+      throw forbidden("Você não tem autorização para criar usuários.", "Sem autorização");
     }
 
     const requestedRoles = data.roles.map((r) => r.roleId);
@@ -69,18 +70,7 @@ export const usersService = {
 
     const user = await usersRepository.createUser(data, tempPasswordHash, requestMakerId);
 
-    const activationToken = randomBytes(32).toString("hex");
-    const redisKey = `activation:${activationToken}`;
-
-    const redis = getRedis();
-    await redis.set(redisKey, user.id, "EX", 86400);
-
-    //Invocar worker para enviar o email de ativação
-
-    logger.info(
-      { userId: user.id, token: activationToken },
-      `Link de ativação enviado para ${user.email}: ${env.FRONTEND_URL}/activate/${activationToken}`
-    ); //REMOVER APÓS FINALIZAR DESENVOLVIMENTO DO WORKER
+    await generateAndSaveActivationToken(user.id, user.email);
 
     return {
       fullName: user.fullName,
@@ -114,18 +104,7 @@ export const usersService = {
       );
     }
 
-    const activationToken = randomBytes(32).toString("hex");
-    const redisKey = `activation:${activationToken}`;
-
-    const redis = getRedis();
-    await redis.set(redisKey, user.id, "EX", 86400);
-
-    //Invocar worker para enviar o email de ativação
-
-    logger.info(
-      { userId: user.id, token: activationToken },
-      `Link de ativação enviado para ${user.email}: ${env.FRONTEND_URL}/activate/${activationToken}`
-    ); //REMOVER APÓS FINALIZAR DESENVOLVIMENTO DO WORKER
+    await generateAndSaveActivationToken(user.id, user.email);
 
     return { message: "Link de ativação reenviado para o e-mail cadastrado." };
   },
@@ -181,7 +160,31 @@ export const usersService = {
     return await usersRepository.findBasicUserDataByEmail(email);
   },
 
+  async getUserEditData(id: string) {
+    return await usersRepository.findUserEditDataById(id);
+  },
+
   async getSelfData(id: string) {
     return await usersRepository.findBasicUserDataById(id);
+  },
+
+  async updateUser(id: string, payload: UpdateUserPayload, requestMakerId: string) {
+    return await usersRepository.updateUserData(id, payload, requestMakerId);
+  },
+
+  async removeUser(targetId: string, requestMakerId: string) {
+    const result = await usersRepository.removeUser(targetId, requestMakerId);
+    await AuthService.revokeAllUserSessions(targetId);
+    return result;
+  },
+
+  async deactivateUser(targetId: string) {
+    const result = await usersRepository.deactivateUser(targetId);
+    await AuthService.revokeAllUserSessions(targetId);
+    return result;
+  },
+
+  async reactivateUser(targetId: string) {
+    return await usersRepository.reactivateUser(targetId);
   },
 };

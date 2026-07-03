@@ -38,8 +38,8 @@ export const createUserSchema = z.object({
     .array(
       z.object({
         roleId: z.uuid("ID do cargo inválido"),
-        facilities: z.array(z.uuid("ID da unidade inválido")).optional(),
-        permissionIds: z.array(z.uuid("ID da permissão inválido")).optional(),
+        facilities: z.array(z.uuid("ID da unidade inválido")),
+        permissionIds: z.array(z.uuid("ID da permissão inválido")),
       })
     )
     .min(1, "O usuário precisa ter ao menos um cargo associado"),
@@ -89,8 +89,8 @@ export const updateUserSchema = z.object({
     .array(
       z.object({
         roleId: z.uuid("ID do cargo inválido"),
-        facilities: z.array(z.uuid("ID da unidade inválido")).optional(),
-        permissionIds: z.array(z.uuid("ID da permissão inválido")).optional(),
+        facilities: z.array(z.uuid("ID da unidade inválido")),
+        permissionIds: z.array(z.uuid("ID da permissão inválido")),
       })
     )
     .min(1, "O usuário precisa ter ao menos um cargo associado"),

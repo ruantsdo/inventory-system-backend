@@ -35,15 +35,11 @@ export const PermissionsRepository = {
   async findPermissionsByUserId(userId: string) {
     return prisma.permission.findMany({
       where: {
-        roles: {
+        userRoles: {
           some: {
-            role: {
-              users: {
-                some: {
-                  userId,
-                  isActive: true,
-                },
-              },
+            userRole: {
+              userId,
+              isActive: true,
             },
           },
         },
@@ -64,11 +60,10 @@ export const PermissionsRepository = {
             facilities: {
               include: { facility: true },
             },
-            role: {
+            role: true,
+            permissions: {
               include: {
-                permissions: {
-                  include: { permission: true },
-                },
+                permission: true,
               },
             },
           },
@@ -97,9 +92,9 @@ export const PermissionsRepository = {
     const permissionNamesSet = new Set<string>();
     const permissionIdsSet = new Set<string>();
     for (const ur of activeUserRoles) {
-      for (const rp of ur.role.permissions) {
-        permissionNamesSet.add(rp.permission.name);
-        permissionIdsSet.add(rp.permission.id);
+      for (const urp of ur.permissions) {
+        permissionNamesSet.add(urp.permission.name);
+        permissionIdsSet.add(urp.permission.id);
       }
     }
 
@@ -113,3 +108,4 @@ export const PermissionsRepository = {
     };
   },
 };
+

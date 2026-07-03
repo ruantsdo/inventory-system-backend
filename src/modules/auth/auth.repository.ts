@@ -11,12 +11,9 @@ export const AuthRepository = {
             facilities: {
               include: { facility: true },
             },
-            role: {
-              include: {
-                permissions: {
-                  include: { permission: true },
-                },
-              },
+            role: true,
+            permissions: {
+              include: { permission: true },
             },
           },
         },
@@ -33,18 +30,16 @@ export const AuthRepository = {
             facilities: {
               include: { facility: true },
             },
-            role: {
-              include: {
-                permissions: {
-                  include: { permission: true },
-                },
-              },
+            role: true,
+            permissions: {
+              include: { permission: true },
             },
           },
         },
       },
     });
   },
+
 
   checkUserForResetPasswordFirstStep(cpf: string, email: string, birthDate: string) {
     const parsedBirthDate = formatDate(birthDate);

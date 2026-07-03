@@ -18,13 +18,10 @@ const detailQueryIncludes = {
           facility: true,
         },
       },
-      role: {
+      role: true,
+      permissions: {
         include: {
-          permissions: {
-            include: {
-              permission: true,
-            },
-          },
+          permission: true,
         },
       },
     },
@@ -44,19 +41,17 @@ const editQueryIncludes = {
           },
         },
       },
-      role: {
+      role: true,
+      permissions: {
         include: {
-          permissions: {
-            include: {
-              permission: true,
-            },
-          },
+          permission: true,
         },
       },
     },
   },
   professionalDocuments: true,
 } as const;
+
 
 type UserWithRelations = Prisma.UserGetPayload<{
   include: typeof detailQueryIncludes;
@@ -83,7 +78,7 @@ function mapToUserDetail(user: UserWithRelations): UserDetailPayload {
     roles: user.roles.map((userRole) => ({
       roleName: userRole.role.displayName,
       facilities: userRole.facilities.map((f) => f.facility.name),
-      permissionNames: userRole.role.permissions.map((p) => p.permission.displayName),
+      permissionNames: userRole.permissions.map((p) => p.permission.displayName),
     })),
     professionalDocuments: user.professionalDocuments.map((doc) => ({
       documentType: doc.documentType as ProfessionalDocumentType,
@@ -117,14 +112,14 @@ function mapToUserEditData(user: UserWithRelationsForEdit): UserEditData {
       roleId: userRole.role.id,
       roleName: userRole.role.displayName,
       facilities: userRole.facilities.map((f) => f.facility.name),
-      permissionNames: userRole.role.permissions.map((p) => p.permission.displayName),
+      permissionNames: userRole.permissions.map((p) => p.permission.displayName),
       facilityDetails: userRole.facilities.map((f) => ({
         id: f.facility.id,
         name: f.facility.name,
         cityId: f.facility.cityId ?? undefined,
         cityName: f.facility.city?.name ?? undefined,
       })),
-      permissionDetails: userRole.role.permissions.map((p) => ({
+      permissionDetails: userRole.permissions.map((p) => ({
         id: p.permission.id,
         name: p.permission.name,
         displayName: p.permission.displayName,
@@ -223,9 +218,26 @@ export const usersRepository = {
       },
       include: {
         permission: true,
+        role: {
+          select: { category: true },
+        },
       },
     });
   },
+
+  async findRoleById(roleId: string) {
+    return prisma.role.findUnique({
+      where: { id: roleId },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
+    });
+  },
+
 
   async getPermissionsByIds(permissionIds: string[]) {
     return prisma.permission.findMany({
@@ -245,13 +257,9 @@ export const usersRepository = {
         roles: {
           where: { isActive: true },
           select: {
-            role: {
+            permissions: {
               select: {
-                permissions: {
-                  select: {
-                    permission: true,
-                  },
-                },
+                permission: true,
               },
             },
           },
@@ -263,12 +271,13 @@ export const usersRepository = {
 
     const activePermissions = new Set<string>();
     for (const userRole of user.roles) {
-      for (const rolePerm of userRole.role.permissions) {
-        activePermissions.add(rolePerm.permission.name);
+      for (const urp of userRole.permissions) {
+        activePermissions.add(urp.permission.name);
       }
     }
     return Array.from(activePermissions);
   },
+
 
   async createUser(data: CreateUserInput, tempPasswordHash: string, requestMakerId: string) {
     return prisma.$transaction(async (tx) => {
@@ -291,24 +300,37 @@ export const usersRepository = {
           neighborhood: data.neighborhood,
           addressCity: data.addressCity,
           state: data.state,
-
-          roles: {
-            create: data.roles.map((role) => ({
-              role: { connect: { id: role.roleId } },
-              assignedByUser: { connect: { id: requestMakerId } },
-              scopeMode: role.facilities && role.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL",
-              ...(role.facilities &&
-                role.facilities.length > 0 && {
-                  facilities: {
-                    createMany: {
-                      data: role.facilities.map((facId) => ({ facilityId: facId })),
-                    },
-                  },
-                }),
-            })),
-          },
         },
       });
+
+      for (const role of data.roles) {
+        const userRole = await tx.userRole.create({
+          data: {
+            user: { connect: { id: user.id } },
+            role: { connect: { id: role.roleId } },
+            assignedByUser: { connect: { id: requestMakerId } },
+            scopeMode: role.facilities && role.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL",
+            ...(role.facilities &&
+              role.facilities.length > 0 && {
+                facilities: {
+                  createMany: {
+                    data: role.facilities.map((facId) => ({ facilityId: facId })),
+                  },
+                },
+              }),
+          },
+        });
+
+        if (role.permissionIds && role.permissionIds.length > 0) {
+          await tx.userRolePermission.createMany({
+            data: role.permissionIds.map((permId) => ({
+              userRoleId: userRole.id,
+              permissionId: permId,
+            })),
+          });
+        }
+      }
+
 
       if (data.professionalDocuments && data.professionalDocuments.length > 0) {
         await tx.userProfessionalDocument.createMany({
@@ -456,7 +478,7 @@ export const usersRepository = {
 
       if (data.roles && data.roles.length > 0) {
         for (const role of data.roles) {
-          await tx.userRole.create({
+          const userRole = await tx.userRole.create({
             data: {
               user: { connect: { id: id } },
               role: { connect: { id: role.roleId } },
@@ -472,8 +494,18 @@ export const usersRepository = {
                 }),
             },
           });
+
+          if (role.permissionIds && role.permissionIds.length > 0) {
+            await tx.userRolePermission.createMany({
+              data: role.permissionIds.map((permId) => ({
+                userRoleId: userRole.id,
+                permissionId: permId,
+              })),
+            });
+          }
         }
       }
+
 
       await tx.userProfessionalDocument.deleteMany({
         where: { userId: id },

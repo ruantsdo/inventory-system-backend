@@ -34,17 +34,16 @@ export function authorize(requiredPermission: string) {
         where: {
           userId: user.id,
           isActive: true,
-          role: {
-            permissions: {
-              some: {
-                permission: {
-                  name: requiredPermission,
-                },
+          permissions: {
+            some: {
+              permission: {
+                name: requiredPermission,
               },
             },
           },
         },
       });
+
 
       if (!hasPermission) {
         return next(

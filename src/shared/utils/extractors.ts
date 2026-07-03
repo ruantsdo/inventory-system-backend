@@ -68,14 +68,14 @@ export async function extractSession(
       }
     }
 
-    for (const rp of ur.role.permissions) {
-      const permName = rp.permission.name;
+    for (const urp of ur.permissions) {
+      const permName = urp.permission.name;
       const existing = effectiveMap.get(permName);
 
       if (ur.scopeMode === "GLOBAL") {
         effectiveMap.set(permName, {
-          id: rp.permission.id,
-          scopeMode: rp.permission.scopeMode,
+          id: urp.permission.id,
+          scopeMode: urp.permission.scopeMode,
           allowedFacilityIds: null,
         });
       } else if (ur.scopeMode === "FACILITY_SET") {
@@ -88,12 +88,13 @@ export async function extractSession(
           facilitySet.add(scope.facility.id);
         }
         effectiveMap.set(permName, {
-          id: rp.permission.id,
-          scopeMode: rp.permission.scopeMode,
+          id: urp.permission.id,
+          scopeMode: urp.permission.scopeMode,
           allowedFacilityIds: facilitySet,
         });
       }
     }
+
   }
 
   const isRoot = user.roles.some((ur) => ur.isActive && ur.role.governanceLevel === "ROOT");

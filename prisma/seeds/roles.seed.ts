@@ -41,6 +41,7 @@ const administrativeRoles: RoleSeed[] = [
       "users.manage_scope",
       "users.manage_facilities",
       "users.manage_admin_roles",
+      "users.grant_functional_roles",
 
       "roles.assign",
       "roles.unassign",
@@ -52,6 +53,8 @@ const administrativeRoles: RoleSeed[] = [
       "permissions.view",
       "permissions.grant",
       "permissions.revoke",
+
+      "cities.view",
 
       "facilities.view",
       "facilities.create",
@@ -93,16 +96,20 @@ const administrativeRoles: RoleSeed[] = [
       "users.view",
       "users.create",
       "users.update",
+      "users.delete",
       "users.restore",
       "users.activate",
       "users.deactivate",
       "users.manage_scope",
       "users.manage_facilities",
+      "users.grant_functional_roles",
 
       "roles.assign",
       "roles.unassign",
 
       "permissions.view",
+
+      "cities.view",
 
       "facilities.view",
       "facilities.create",
@@ -139,9 +146,14 @@ const administrativeRoles: RoleSeed[] = [
       "users.update",
       "users.activate",
       "users.deactivate",
+      "users.grant_functional_roles",
 
       "roles.assign",
       "roles.unassign",
+
+      "cities.view",
+
+      "facilities.view",
 
       "reports.run",
     ],
@@ -159,11 +171,17 @@ const administrativeRoles: RoleSeed[] = [
       "users.update",
       "users.activate",
       "users.deactivate",
-
       "users.manage_facilities",
+
+      "users.grant_functional_roles",
 
       "roles.assign",
       "roles.unassign",
+
+      "permissions.view",
+
+      "cities.view",
+      "facilities.view",
 
       "reports.run",
     ],
@@ -178,6 +196,12 @@ const administrativeRoles: RoleSeed[] = [
     governanceLevel: "MANAGER",
     permissions: [
       "users.view",
+      "users.create",
+      "users.update",
+      "users.activate",
+      "users.deactivate",
+
+      "cities.view",
 
       "facilities.view",
       "facilities.update",
@@ -199,6 +223,19 @@ const administrativeRoles: RoleSeed[] = [
     governanceLevel: "MANAGER",
     permissions: [
       "users.view",
+      "users.create",
+      "users.update",
+      "users.activate",
+      "users.deactivate",
+      "users.manage_facilities",
+      "users.grant_functional_roles",
+
+      "roles.assign",
+      "roles.unassign",
+
+      "cities.view",
+
+      "facilities.view",
 
       "inventory.view",
       "requests.view",
@@ -225,6 +262,11 @@ const administrativeRoles: RoleSeed[] = [
       "audit.security_events",
 
       "controlled.audit",
+
+      "items.view",
+      "inventory.view",
+      "batches.view",
+      "requests.view",
 
       "reports.run",
       "reports.export",
@@ -260,8 +302,8 @@ const administrativeRoles: RoleSeed[] = [
   },
 
   {
-    name: "VIEWER",
-    displayName: "Visualizador",
+    name: "SYSTEM_VIEWER",
+    displayName: "Visualizador do Sistema",
     description: "Acesso somente leitura ao sistema.",
     category: "ADMINISTRATIVE",
 
@@ -365,6 +407,8 @@ const functionalRoles: RoleSeed[] = [
       "batches.view",
 
       "items.view",
+
+      "requests.view",
     ],
   },
 
@@ -409,7 +453,13 @@ const functionalRoles: RoleSeed[] = [
     displayName: "Autorizador de Controlados",
     description: "Responsável pela autorização de dispensação de medicamentos controlados.",
     category: "FUNCTIONAL",
-    permissions: ["controlled.view", "controlled.authorize", "controlled.authorize_any_facility"],
+    permissions: [
+      "items.view",
+      "inventory.view",
+      "controlled.view",
+      "controlled.authorize",
+      "controlled.authorize_any_facility",
+    ],
   },
 
   {
@@ -476,7 +526,7 @@ const functionalRoles: RoleSeed[] = [
   },
 
   {
-    name: "VIEWER",
+    name: "OPERATIONAL_VIEWER",
     displayName: "Consulta Operacional",
     description: "Acesso somente leitura aos módulos operacionais permitidos.",
     category: "FUNCTIONAL",

@@ -129,6 +129,13 @@ const usersPermissions: PermissionSeed[] = [
     description: "Permite remover permissões de cargos.",
     scopeMode: PermissionScopeMode.GLOBAL,
   },
+  {
+    name: "users.grant_functional_roles",
+    displayName: "Atribuir cargos funcionais",
+    description:
+      "Permite atribuir cargos da categoria FUNCIONAIS a usuários, mesmo sem possuir individualmente as permissões desses cargos. Não concede acesso às funcionalidades operacionais.",
+    scopeMode: PermissionScopeMode.GLOBAL,
+  },
 ];
 
 export async function seedUsersPermissions(prisma: PrismaClient) {

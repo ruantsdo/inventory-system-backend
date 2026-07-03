@@ -49,15 +49,42 @@ export async function seedAdmin(prisma: PrismaClient, adminRoleId: string) {
     },
   });
 
+  let userRoleId: string;
+
   if (!existingUserRole) {
-    await prisma.userRole.create({
+    const createdUserRole = await prisma.userRole.create({
       data: {
         userId,
         roleId: adminRoleId,
         scopeMode: UserRoleScopeMode.GLOBAL,
       },
     });
+    userRoleId = createdUserRole.id;
+  } else {
+    userRoleId = existingUserRole.id;
   }
+
+
+  const rolePermissions = await prisma.rolePermission.findMany({
+    where: { roleId: adminRoleId },
+  });
+
+  for (const rp of rolePermissions) {
+    await prisma.userRolePermission.upsert({
+      where: {
+        userRoleId_permissionId: {
+          userRoleId,
+          permissionId: rp.permissionId,
+        },
+      },
+      update: {},
+      create: {
+        userRoleId,
+        permissionId: rp.permissionId,
+      },
+    });
+  }
+
 
   console.log("Admin seeded.");
 

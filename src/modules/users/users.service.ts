@@ -35,25 +35,50 @@ export const usersService = {
       throw forbidden("Você não tem autorização para criar usuários.", "Sem autorização");
     }
 
-    const requestedRoles = data.roles.map((r) => r.roleId);
-    const rolePermissionsRecords = await usersRepository.getRolePermissions(requestedRoles);
-
+    const canGrantFunctionalRoles = adminPermsSet.has("users.grant_functional_roles");
     const unauthorizedPerms = new Set<string>();
 
-    for (const rp of rolePermissionsRecords) {
-      if (!adminPermsSet.has(rp.permission.name)) {
-        unauthorizedPerms.add(rp.permission.displayName);
+    for (const userRole of data.roles) {
+      const role = await usersRepository.findRoleById(userRole.roleId);
+      if (!role) {
+        throw badRequest("Cargo não encontrado.", "Cargo inválido");
       }
-    }
 
-    const extraPermIds = data.roles.flatMap((r) => r.permissionIds ?? []);
-    if (extraPermIds.length > 0) {
-      const uniqueExtraIds = [...new Set(extraPermIds)];
-      const extraPermRecords = await usersRepository.getPermissionsByIds(uniqueExtraIds);
+      const isFunctionalBypass = canGrantFunctionalRoles && role.category === "FUNCTIONAL";
 
-      for (const perm of extraPermRecords) {
-        if (!adminPermsSet.has(perm.name)) {
-          unauthorizedPerms.add(perm.displayName);
+      if (isFunctionalBypass) {
+        const defaultRolePermIds = new Set(role.permissions.map((p) => p.permissionId));
+
+        if (userRole.permissionIds && userRole.permissionIds.length > 0) {
+          const invalidBypassPerms = new Set<string>();
+          const payloadPermRecords = await usersRepository.getPermissionsByIds(
+            userRole.permissionIds
+          );
+
+          for (const perm of payloadPermRecords) {
+            if (!defaultRolePermIds.has(perm.id)) {
+              invalidBypassPerms.add(perm.displayName);
+            }
+          }
+
+          if (invalidBypassPerms.size > 0) {
+            throw forbidden(
+              `Você não pode conceder permissões extras fora do cargo padrão para esta categoria funcional: ${[...invalidBypassPerms].join(", ")}`,
+              "Privilégio inválido para bypass funcional"
+            );
+          }
+        }
+      } else {
+        if (userRole.permissionIds && userRole.permissionIds.length > 0) {
+          const payloadPermRecords = await usersRepository.getPermissionsByIds(
+            userRole.permissionIds
+          );
+
+          for (const perm of payloadPermRecords) {
+            if (!adminPermsSet.has(perm.name)) {
+              unauthorizedPerms.add(perm.displayName);
+            }
+          }
         }
       }
     }

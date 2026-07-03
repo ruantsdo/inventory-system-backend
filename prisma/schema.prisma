@@ -211,7 +211,9 @@ model Permission {
   updatedAt DateTime @updatedAt @db.Timestamptz
 
   roles RolePermission[]
+  userRoles UserRolePermission[]
 }
+
 
 model RolePermission {
   id           String @id @default(uuid()) @db.Uuid
@@ -242,6 +244,7 @@ model UserRole {
   assignedByUser    User?   @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
 
   facilities UserRoleFacilityScope[]
+  permissions UserRolePermission[]
 
   createdAt  DateTime @default(now()) @db.Timestamptz
   updatedAt  DateTime @updatedAt @db.Timestamptz
@@ -267,6 +270,22 @@ model UserRoleFacilityScope {
   @@index([facilityId])
   @@index([userRoleId])
 }
+
+model UserRolePermission {
+  id           String @id @default(uuid()) @db.Uuid
+  userRoleId   String @db.Uuid
+  permissionId String @db.Uuid
+
+  userRole   UserRole   @relation(fields: [userRoleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@unique([userRoleId, permissionId])
+  @@index([userRoleId])
+  @@index([permissionId])
+}
+
 
 //////////////////////////////////////////////////////
 // FACILITIES

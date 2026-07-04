@@ -40,7 +40,6 @@ export const AuthRepository = {
     });
   },
 
-
   checkUserForResetPasswordFirstStep(cpf: string, email: string, birthDate: string) {
     const parsedBirthDate = formatDate(birthDate);
 

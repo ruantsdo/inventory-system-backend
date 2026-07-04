@@ -7,7 +7,7 @@ import type {
   UserDetailPayload,
   UserEditData,
 } from "../../shared/types/api.contracts";
-import { formatDate, formatToBRDate } from "../../shared/utils/formatters";
+import { formatDate, formatToPatternDate } from "../../shared/utils/formatters";
 import type { CreateUserInput } from "./users.schema";
 
 const detailQueryIncludes = {
@@ -52,7 +52,6 @@ const editQueryIncludes = {
   professionalDocuments: true,
 } as const;
 
-
 type UserWithRelations = Prisma.UserGetPayload<{
   include: typeof detailQueryIncludes;
 }>;
@@ -66,7 +65,7 @@ function mapToUserDetail(user: UserWithRelations): UserDetailPayload {
     fullName: user.fullName,
     email: user.email,
     cpf: user.cpf,
-    birthDate: formatToBRDate(user.birthDate),
+    birthDate: formatToPatternDate(user.birthDate),
     phone: user.phone ?? undefined,
     zipCode: user.zipCode ?? undefined,
     streetAddress: user.streetAddress ?? undefined,
@@ -85,8 +84,8 @@ function mapToUserDetail(user: UserWithRelations): UserDetailPayload {
       documentNumber: doc.documentNumber,
       issuer: doc.issuer ?? undefined,
       issuerState: doc.issuerState ?? undefined,
-      issuedAt: doc.issuedAt ? formatToBRDate(doc.issuedAt) : undefined,
-      expiresAt: doc.expiresAt ? formatToBRDate(doc.expiresAt) : undefined,
+      issuedAt: doc.issuedAt ? formatToPatternDate(doc.issuedAt) : undefined,
+      expiresAt: doc.expiresAt ? formatToPatternDate(doc.expiresAt) : undefined,
       isPrimary: doc.isPrimary,
       isActive: doc.isActive,
       notes: doc.notes ?? undefined,
@@ -99,7 +98,7 @@ function mapToUserEditData(user: UserWithRelationsForEdit): UserEditData {
     fullName: user.fullName,
     email: user.email,
     cpf: user.cpf,
-    birthDate: formatToBRDate(user.birthDate),
+    birthDate: formatToPatternDate(user.birthDate),
     phone: user.phone ?? undefined,
     zipCode: user.zipCode ?? undefined,
     streetAddress: user.streetAddress ?? undefined,
@@ -130,8 +129,8 @@ function mapToUserEditData(user: UserWithRelationsForEdit): UserEditData {
       documentNumber: doc.documentNumber,
       issuer: doc.issuer ?? undefined,
       issuerState: doc.issuerState ?? undefined,
-      issuedAt: doc.issuedAt ? formatToBRDate(doc.issuedAt) : undefined,
-      expiresAt: doc.expiresAt ? formatToBRDate(doc.expiresAt) : undefined,
+      issuedAt: doc.issuedAt ? formatToPatternDate(doc.issuedAt) : undefined,
+      expiresAt: doc.expiresAt ? formatToPatternDate(doc.expiresAt) : undefined,
       isPrimary: doc.isPrimary,
       isActive: doc.isActive,
       notes: doc.notes ?? undefined,
@@ -238,7 +237,6 @@ export const usersRepository = {
     });
   },
 
-
   async getPermissionsByIds(permissionIds: string[]) {
     return prisma.permission.findMany({
       where: {
@@ -277,7 +275,6 @@ export const usersRepository = {
     }
     return Array.from(activePermissions);
   },
-
 
   async createUser(data: CreateUserInput, tempPasswordHash: string, requestMakerId: string) {
     return prisma.$transaction(async (tx) => {
@@ -330,7 +327,6 @@ export const usersRepository = {
           });
         }
       }
-
 
       if (data.professionalDocuments && data.professionalDocuments.length > 0) {
         await tx.userProfessionalDocument.createMany({
@@ -505,7 +501,6 @@ export const usersRepository = {
           }
         }
       }
-
 
       await tx.userProfessionalDocument.deleteMany({
         where: { userId: id },

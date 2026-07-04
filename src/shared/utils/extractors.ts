@@ -94,7 +94,6 @@ export async function extractSession(
         });
       }
     }
-
   }
 
   const isRoot = user.roles.some((ur) => ur.isActive && ur.role.governanceLevel === "ROOT");

@@ -14,21 +14,25 @@ export function authorize(requiredPermission: string) {
 
       req.actionContext = extractAction(requiredPermission);
 
-      const isAdmin = await prisma.user.findFirst({
+      const isPrivilegedAdmin = await prisma.user.findFirst({
         where: {
           id: user.id,
           isActive: true,
           roles: {
             some: {
+              isActive: true,
               role: {
-                governanceLevel: { in: ["ROOT"] },
+                governanceLevel: { in: ["ROOT", "SUPER_ADMIN"] },
               },
             },
           },
         },
+        select: { id: true },
       });
 
-      if (isAdmin) return next();
+      if (isPrivilegedAdmin) return next();
+
+      const activeFacilityId = user.activeFacilityId;
 
       const hasPermission = await prisma.userRole.findFirst({
         where: {
@@ -41,13 +45,25 @@ export function authorize(requiredPermission: string) {
               },
             },
           },
+          OR: [
+            { scopeMode: "GLOBAL" },
+            {
+              scopeMode: "FACILITY_SET",
+              facilities: {
+                some: { facilityId: activeFacilityId },
+              },
+            },
+          ],
         },
+        select: { id: true },
       });
-
 
       if (!hasPermission) {
         return next(
-          forbidden("Você não possui permissão para realizar esta ação.", "Acesso negado")
+          forbidden(
+            "Você não possui permissão para realizar esta ação na unidade ativa atual.",
+            "Acesso negado"
+          )
         );
       }
 

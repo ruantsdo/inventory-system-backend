@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { prisma } from "../../shared/db/prisma";
 import { unauthorized } from "../../shared/errors/AppError";
 import {
   confirmActivationSchema,
@@ -7,6 +8,20 @@ import {
   updateUserSchema,
 } from "./users.schema";
 import { usersService } from "./users.service";
+
+async function resolveIsPrivilegedCaller(userId: string): Promise<boolean> {
+  const privileged = await prisma.userRole.findFirst({
+    where: {
+      userId,
+      isActive: true,
+      role: {
+        governanceLevel: { in: ["ROOT", "SUPER_ADMIN"] },
+      },
+    },
+    select: { id: true },
+  });
+  return !!privileged;
+}
 
 export async function createUserController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -45,9 +60,16 @@ export async function confirmActivationController(req: Request, res: Response, n
   }
 }
 
-export async function getAllUsersController(_req: Request, res: Response, next: NextFunction) {
+export async function getAllUsersController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await usersService.getAllUsers();
+    const callerId = req.user?.id;
+    if (!callerId) throw unauthorized("Usuário não autenticado", "Não autenticado");
+
+    const activeFacilityId = req.user?.activeFacilityId;
+    if (!activeFacilityId) throw unauthorized("Unidade ativa não definida", "Não autenticado");
+
+    const isPrivilegedCaller = await resolveIsPrivilegedCaller(callerId);
+    const result = await usersService.getAllUsers(activeFacilityId, isPrivilegedCaller);
     res.json(result);
   } catch (error) {
     next(error);
@@ -60,8 +82,12 @@ export async function getUsersByFacilityIdController(
   next: NextFunction
 ) {
   try {
-    const facilityId = req.cookies?.activeFacilityId as string;
-    const result = await usersService.getUsersByFacilityId(facilityId);
+    const callerId = req.user?.id;
+    if (!callerId) throw unauthorized("Usuário não autenticado", "Não autenticado");
+
+    const facilityId = req.params.facilityId as string;
+    const isPrivilegedCaller = await resolveIsPrivilegedCaller(callerId);
+    const result = await usersService.getUsersByFacilityId(facilityId, isPrivilegedCaller);
     res.json(result);
   } catch (error) {
     next(error);

@@ -367,10 +367,36 @@ export const usersRepository = {
     });
   },
 
-  async getAllUsers() {
+  async getAllUsers(activeFacilityId: string, isPrivilegedCaller: boolean) {
     return prisma.user.findMany({
       where: {
         isDeleted: { not: true },
+        roles: {
+          some: {
+            isActive: true,
+            OR: [
+              { scopeMode: "GLOBAL" },
+              {
+                scopeMode: "FACILITY_SET",
+                facilities: {
+                  some: { facilityId: activeFacilityId },
+                },
+              },
+            ],
+          },
+        },
+        ...(!isPrivilegedCaller && {
+          NOT: {
+            roles: {
+              some: {
+                isActive: true,
+                role: {
+                  governanceLevel: { in: ["ROOT", "SUPER_ADMIN"] },
+                },
+              },
+            },
+          },
+        }),
       },
       select: {
         id: true,
@@ -380,6 +406,7 @@ export const usersRepository = {
         phone: true,
         isActive: true,
         roles: {
+          where: { isActive: true },
           select: {
             role: true,
           },
@@ -388,19 +415,34 @@ export const usersRepository = {
     });
   },
 
-  async getUsersByFacilityId(facilityId: string) {
+  async getUsersByFacilityId(facilityId: string, isPrivilegedCaller: boolean) {
     return prisma.user.findMany({
       where: {
         isDeleted: { not: true },
         roles: {
           some: {
-            facilities: {
+            isActive: true,
+            OR: [
+              { scopeMode: "GLOBAL" },
+              {
+                scopeMode: "FACILITY_SET",
+                facilities: { some: { facilityId } },
+              },
+            ],
+          },
+        },
+        ...(!isPrivilegedCaller && {
+          NOT: {
+            roles: {
               some: {
-                facilityId: facilityId,
+                isActive: true,
+                role: {
+                  governanceLevel: { in: ["ROOT", "SUPER_ADMIN"] },
+                },
               },
             },
           },
-        },
+        }),
       },
       select: {
         id: true,
@@ -410,6 +452,7 @@ export const usersRepository = {
         phone: true,
         isActive: true,
         roles: {
+          where: { isActive: true },
           select: {
             role: true,
           },

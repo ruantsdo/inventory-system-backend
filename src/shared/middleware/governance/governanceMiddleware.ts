@@ -17,6 +17,7 @@ import { canRemoveRole } from "./services/canRemoveRole";
 import { canRevokePermission } from "./services/canRevokePermission";
 import { GOVERNANCE_RANK } from "./services/governanceHelpers";
 import { rootShielding } from "./services/rootShielding";
+import { validateFacilityScope } from "./services/validateFacilityScope";
 
 async function resolveCallerGovernanceLevel(userId: string): Promise<GovernanceLevel | null> {
   const userRoles = await prisma.userRole.findMany({
@@ -293,6 +294,9 @@ export const governance = {
         await rootShielding(callerLevel, action, undefined, data);
 
         if (data?.roles) {
+          const allFacilityIds = data.roles.flatMap((r) => r.facilities ?? []);
+          await validateFacilityScope(user.id, allFacilityIds);
+
           for (const userRole of data.roles) {
             const scopeMode =
               userRole.facilities && userRole.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL";
@@ -363,11 +367,63 @@ export const governance = {
               role: {
                 select: { id: true, category: true, governanceLevel: true, isProtected: true },
               },
+              facilities: {
+                select: { facilityId: true },
+              },
+              permissions: {
+                select: { permissionId: true },
+              },
             },
           });
 
-          const currentRoleIds = new Set(currentRoles.map((cr) => cr.roleId));
+          const currentRoleMap = new Map(
+            currentRoles.map((cr) => [
+              cr.roleId,
+              {
+                role: cr.role,
+                facilityIds: new Set(cr.facilities.map((f) => f.facilityId)),
+                permissionIds: new Set(cr.permissions.map((p) => p.permissionId)),
+              },
+            ])
+          );
+
           const newRoleIds = new Set(data.roles.map((r) => r.roleId));
+          const facilityIdsToValidate: string[] = [];
+
+          for (const newRole of data.roles) {
+            const current = currentRoleMap.get(newRole.roleId);
+
+            if (!current) {
+              facilityIdsToValidate.push(...(newRole.facilities ?? []));
+            } else {
+              const newPermSet = new Set(newRole.permissionIds ?? []);
+              const hasPermissionChange =
+                newPermSet.size !== current.permissionIds.size ||
+                [...newPermSet].some((id) => !current.permissionIds.has(id));
+
+              const newFacilitySet = new Set(newRole.facilities ?? []);
+              const hasFacilityChange =
+                newFacilitySet.size !== current.facilityIds.size ||
+                [...newFacilitySet].some((id) => !current.facilityIds.has(id));
+
+              if (hasPermissionChange || hasFacilityChange) {
+                facilityIdsToValidate.push(...current.facilityIds);
+                facilityIdsToValidate.push(...(newRole.facilities ?? []));
+              }
+            }
+          }
+
+          for (const [roleId, current] of currentRoleMap) {
+            if (!newRoleIds.has(roleId)) {
+              facilityIdsToValidate.push(...current.facilityIds);
+            }
+          }
+
+          if (facilityIdsToValidate.length > 0) {
+            await validateFacilityScope(user.id, facilityIdsToValidate);
+          }
+
+          const currentRoleIds = new Set(currentRoleMap.keys());
 
           for (const newRole of data.roles) {
             const scopeMode =
@@ -388,9 +444,9 @@ export const governance = {
             }
           }
 
-          for (const currentRole of currentRoles) {
-            if (!newRoleIds.has(currentRole.roleId)) {
-              canRemoveRole(callerLevel, currentRole.role);
+          for (const [roleId, current] of currentRoleMap) {
+            if (!newRoleIds.has(roleId)) {
+              canRemoveRole(callerLevel, current.role);
             }
           }
         }

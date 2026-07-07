@@ -8,12 +8,12 @@ export const AuthRepository = {
       include: {
         roles: {
           include: {
-            role: {
-              include: {
-                permissions: {
-                  include: { permission: true },
-                },
-              },
+            facilities: {
+              include: { facility: true },
+            },
+            role: true,
+            permissions: {
+              include: { permission: true },
             },
           },
         },
@@ -27,12 +27,12 @@ export const AuthRepository = {
       include: {
         roles: {
           include: {
-            role: {
-              include: {
-                permissions: {
-                  include: { permission: true },
-                },
-              },
+            facilities: {
+              include: { facility: true },
+            },
+            role: true,
+            permissions: {
+              include: { permission: true },
             },
           },
         },

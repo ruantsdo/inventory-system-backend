@@ -20,14 +20,16 @@ export async function authenticate(
     const { payload } = await jwtVerify(token, secret);
 
     const id = payload.sub;
-    const role = (payload.role ?? "") as string;
-    const permissions = (payload.permissions ?? []) as string[];
+    const roleNames = (payload.roleNames ?? []) as string[];
+    const permissionNames = (payload.permissionNames ?? []) as string[];
+    const facilitiesNames = (payload.facilitiesNames ?? []) as string[];
+    const activeFacilityId = payload.activeFacilityId as string;
 
     if (!id) {
       return next(unauthorized("Token malformado.", "Não autenticado"));
     }
 
-    req.user = { id, role, permissions };
+    req.user = { id, roleNames, permissionNames, facilitiesNames, activeFacilityId };
     next();
   } catch {
     next(unauthorized("Sessão expirada ou inválida. Faça login novamente.", "Não autenticado"));

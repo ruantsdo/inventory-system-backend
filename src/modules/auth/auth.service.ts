@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { extractRbac } from "@/shared/utils/extractors";
+import { extractSession } from "@/shared/utils/extractors";
 import * as argon2 from "argon2";
 import { SignJWT, jwtVerify } from "jose";
 import type { JWTPayload } from "jose";
@@ -40,13 +40,15 @@ export const AuthService = {
       );
     }
 
-    const { role, permissions } = extractRbac(user);
-
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
 
-    const accessToken = await new SignJWT({ role, permissions })
+    const expiresAt = new Date(now + refreshExpiresMs).toISOString();
+
+    const { session, jwtClaims } = await extractSession(user, expiresAt);
+
+    const accessToken = await new SignJWT(jwtClaims)
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -73,13 +75,7 @@ export const AuthService = {
       refreshToken,
       accessExpiresMs,
       refreshExpiresMs,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role,
-        permissions,
-      },
+      session,
     };
   },
 
@@ -87,8 +83,7 @@ export const AuthService = {
     let payload: JWTPayload;
 
     try {
-      const { payload: verified } = await jwtVerify(tokenStr, secret);
-      payload = verified;
+      ({ payload } = await jwtVerify(tokenStr, secret));
     } catch {
       throw unauthorized("Token expirado ou inválido. Faça login novamente.", "Token inválido");
     }
@@ -115,21 +110,13 @@ export const AuthService = {
       throw unauthorized("Conta de usuário inativa ou não encontrada.", "Conta inválida");
     }
 
-    //     export interface AuthUser {
-    //   id: string;
-    //   fullName: string;
-    //   email: string;
-    //   role: string;
-    //   permissions: string[];
-    // }
-
-    const { role, permissions } = extractRbac(user);
+    const { jwtClaims, session } = await extractSession(user);
     const now = Date.now();
     const accessExpiresMs = parseDurationToMs(env.JWT_ACCESS_EXPIRES);
     const refreshExpiresMs = parseDurationToMs(env.JWT_REFRESH_EXPIRES);
     const newJti = randomUUID();
 
-    const newAccessToken = await new SignJWT({ role, permissions })
+    const newAccessToken = await new SignJWT(jwtClaims)
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.id)
       .setIssuedAt()
@@ -153,6 +140,22 @@ export const AuthService = {
       refreshToken: newRefreshToken,
       accessExpiresMs,
       refreshExpiresMs,
+      session,
+    };
+  },
+
+  async getSession(userId: string) {
+    const user = await AuthRepository.findUserById(userId);
+
+    if (!user || !user.isActive) {
+      return { authenticated: false as const, session: null };
+    }
+
+    const { session } = await extractSession(user);
+
+    return {
+      authenticated: true as const,
+      session,
     };
   },
 
@@ -218,6 +221,7 @@ export const AuthService = {
 
     const passwordHash = await argon2.hash(newPassword);
     await AuthRepository.resetPassword(userId, passwordHash);
+    await this.revokeAllUserSessions(userId);
 
     return;
   },

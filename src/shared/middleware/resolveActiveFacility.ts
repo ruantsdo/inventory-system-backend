@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
 import { badRequest, forbidden } from "../errors/AppError";
+import { checkIfSuperUser } from "../utils/verifiers";
 
 const uuidSchema = z.string().uuid();
 
@@ -28,6 +29,13 @@ export async function resolveActiveFacility(
       );
     }
 
+    const isSuperUser = await checkIfSuperUser(user.id);
+
+    if (isSuperUser && facilityId === "ALL") {
+      req.user = { ...user, activeFacilityId: facilityId };
+      return next();
+    }
+
     if (!uuidSchema.safeParse(facilityId).success) {
       return next(
         badRequest(
@@ -37,46 +45,44 @@ export async function resolveActiveFacility(
       );
     }
 
-    const isGlobalUser = user.facilitiesNames.length === 0;
+    const facility = await prisma.facility.findFirst({
+      where: {
+        id: facilityId,
+        isActive: true,
+        isDeleted: false,
+      },
+      select: { id: true },
+    });
 
-    if (isGlobalUser) {
-      const facility = await prisma.facility.findFirst({
-        where: {
-          id: facilityId,
-          isActive: true,
-          isDeleted: false,
-        },
-        select: { id: true },
-      });
+    if (!facility) {
+      return next(
+        forbidden("A unidade informada não existe ou está inativa.", "Unidade ativa inválida")
+      );
+    }
 
-      if (!facility) {
-        return next(
-          forbidden("A unidade informada não existe ou está inativa.", "Unidade ativa inválida")
-        );
-      }
-    } else {
-      const userFacility = await prisma.userRoleFacilityScope.findFirst({
-        where: {
-          facilityId,
-          userRole: {
-            userId: user.id,
-            isActive: true,
+    if (!isSuperUser) {
+      const isGlobalUser = user.facilitiesNames.length === 0;
+
+      if (!isGlobalUser) {
+        const userFacility = await prisma.userRoleFacilityScope.findFirst({
+          where: {
+            facilityId,
+            userRole: {
+              userId: user.id,
+              isActive: true,
+            },
           },
-          facility: {
-            isActive: true,
-            isDeleted: false,
-          },
-        },
-        select: { facilityId: true },
-      });
+          select: { facilityId: true },
+        });
 
-      if (!userFacility) {
-        return next(
-          forbidden(
-            "Você não tem acesso à unidade informada ou ela está inativa.",
-            "Acesso à unidade negado"
-          )
-        );
+        if (!userFacility) {
+          return next(
+            forbidden(
+              "Você não tem acesso à unidade informada ou ela está inativa.",
+              "Acesso à unidade negado"
+            )
+          );
+        }
       }
     }
 

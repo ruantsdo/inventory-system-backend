@@ -97,6 +97,9 @@ export async function extractSession(
   }
 
   const isRoot = user.roles.some((ur) => ur.isActive && ur.role.governanceLevel === "ROOT");
+  const isSuperAdmin = user.roles.some(
+    (ur) => ur.isActive && ur.role.governanceLevel === "SUPER_ADMIN"
+  );
 
   if (isRoot) {
     isGlobal = true;
@@ -119,7 +122,21 @@ export async function extractSession(
 
   if (!hasActiveRoles) isGlobal = false;
 
-  const facilities = [...facilitiesMap.values()];
+  let facilities = [...facilitiesMap.values()];
+
+  if (isRoot || isSuperAdmin) {
+    const allFacilities = await prisma.facility.findMany({
+      where: {
+        isActive: true,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    facilities = allFacilities;
+  }
 
   const effectivePermissions: EffectivePermissionOutput[] = [];
   for (const [name, { id, scopeMode, allowedFacilityIds }] of effectiveMap) {

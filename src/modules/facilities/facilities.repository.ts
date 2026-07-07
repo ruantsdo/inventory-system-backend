@@ -59,6 +59,11 @@ export const FacilityRepository = {
         isActive: true,
       },
       select: {
+        role: {
+          select: {
+            governanceLevel: true,
+          },
+        },
         scopeMode: true,
         facilities: {
           select: {
@@ -72,7 +77,12 @@ export const FacilityRepository = {
       return [];
     }
 
-    const hasGlobalAccess = userRoles.some((role) => role.scopeMode === "GLOBAL");
+    const hasGlobalAccess = userRoles.some(
+      (role) =>
+        role.scopeMode === "GLOBAL" ||
+        role.role.governanceLevel === "SUPER_ADMIN" ||
+        role.role.governanceLevel === "ROOT"
+    );
     if (hasGlobalAccess) {
       return prisma.facility.findMany({
         where: {

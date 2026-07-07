@@ -66,7 +66,8 @@ export async function getAllUsersController(req: Request, res: Response, next: N
     if (!callerId) throw unauthorized("Usuário não autenticado", "Não autenticado");
 
     const activeFacilityId = req.user?.activeFacilityId;
-    if (!activeFacilityId) throw unauthorized("Unidade ativa não definida", "Não autenticado");
+    if (!activeFacilityId || activeFacilityId !== "ALL")
+      throw unauthorized("Unidade ativa não definida", "Não autenticado");
 
     const isPrivilegedCaller = await resolveIsPrivilegedCaller(callerId);
     const result = await usersService.getAllUsers(activeFacilityId, isPrivilegedCaller);

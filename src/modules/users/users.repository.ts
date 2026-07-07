@@ -371,20 +371,22 @@ export const usersRepository = {
     return prisma.user.findMany({
       where: {
         isDeleted: { not: true },
-        roles: {
-          some: {
-            isActive: true,
-            OR: [
-              { scopeMode: "GLOBAL" },
-              {
-                scopeMode: "FACILITY_SET",
-                facilities: {
-                  some: { facilityId: activeFacilityId },
+        ...(activeFacilityId !== "ALL" && {
+          roles: {
+            some: {
+              isActive: true,
+              OR: [
+                { scopeMode: "GLOBAL" },
+                {
+                  scopeMode: "FACILITY_SET",
+                  facilities: {
+                    some: { facilityId: activeFacilityId },
+                  },
                 },
-              },
-            ],
+              ],
+            },
           },
-        },
+        }),
         ...(!isPrivilegedCaller && {
           NOT: {
             roles: {

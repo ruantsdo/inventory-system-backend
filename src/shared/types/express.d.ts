@@ -6,10 +6,13 @@ declare global {
     interface Request {
       user?: {
         id: string;
+        userName?: string | undefined;
+        userEmail?: string | undefined;
         roleNames: string[];
         permissionNames: string[];
         facilitiesNames: string[];
         activeFacilityId: string;
+        activeFacilityName?: string | undefined;
       };
       actionContext?: {
         resource: string;

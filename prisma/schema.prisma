@@ -647,3 +647,98 @@ model ItemRequestStatusHistory {
   @@index([newStatus])
   @@index([createdAt])
 }
+
+//////////////////////////////////////////////////////
+// AUDIT
+//////////////////////////////////////////////////////
+
+enum AuditCategory {
+  BUSINESS
+  SECURITY
+  GOVERNANCE
+  SENSITIVE_ACCESS
+}
+
+enum AuditSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AuditOrigin {
+  WEB
+  API
+  SYSTEM
+  BULLMQ
+  CRON
+  SEED
+  MIGRATION
+}
+
+enum AuditEntity {
+  User
+  UserProfessionalDocument
+  Role
+  Permission
+  RolePermission
+  UserRole
+  UserRoleFacilityScope
+  UserRolePermission
+  Facility
+  Location
+  Manufacturer
+  Supplier
+  ItemType
+  Item
+  Batch
+  InventoryEntry
+  StockMovement
+  ItemRequest
+  ItemRequestStatusHistory
+  System
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  createdAt     DateTime @default(now()) @db.Timestamptz
+
+  schemaVersion Int      @default(1)
+
+  origin   AuditOrigin
+  action   String        @db.VarChar(100)
+  category AuditCategory
+  severity AuditSeverity
+
+  entity     AuditEntity
+  entityId   String?     @db.Uuid
+  entityName String?     @db.VarChar(255)
+
+  performedByUserId    String? @db.Uuid
+  performedByUserName  String? @db.VarChar(255)
+  performedByUserEmail String? @db.VarChar(255)
+  performedByRole      String? @db.VarChar(100)
+
+  facilityId   String? @db.Uuid
+  facilityName String? @db.VarChar(255)
+
+  requestId     String? @db.Uuid
+  correlationId String? @db.VarChar(100)
+  ip            String? @db.VarChar(45)
+  userAgent     String? @db.Text
+
+  before Json? @db.JsonB
+  after  Json? @db.JsonB
+
+  metadata Json? @db.JsonB
+
+  @@index([performedByUserId])
+  @@index([facilityId, createdAt])
+  @@index([createdAt])
+  @@index([category, action])
+  @@index([entity, entityId])
+  @@index([requestId])
+  @@index([correlationId])
+  @@map("audit_events")
+}

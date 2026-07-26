@@ -1,5 +1,7 @@
 import type { Prisma } from "../../generated/prisma/client";
+import { AuditEntity } from "../../generated/prisma/client";
 import type { ProfessionalDocumentType } from "../../generated/prisma/enums";
+import { AuditAction, auditService, getDelta } from "../../shared/audit";
 import { prisma } from "../../shared/db/prisma";
 import { forbidden } from "../../shared/errors/AppError";
 import type {
@@ -353,17 +355,45 @@ export const usersRepository = {
         });
       }
 
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: user.id,
+        entityName: user.fullName,
+        action: AuditAction.USER_ACCOUNT_CREATED,
+        after: {
+          fullName: user.fullName,
+          email: user.email,
+          rolesAssigned: data.roles.length,
+          hasDocuments: (data.professionalDocuments?.length ?? 0) > 0,
+        },
+      });
+
       return user;
     });
   },
 
   async activateUser(userId: string, newPasswordHash: string) {
-    return prisma.user.update({
-      where: { id: userId },
-      data: {
-        isActive: true,
-        passwordHash: newPasswordHash,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: {
+          isActive: true,
+          passwordHash: newPasswordHash,
+        },
+      });
+
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: userId,
+        entityName: updated.fullName,
+        action: AuditAction.USER_ACCOUNT_ACTIVATED,
+        before: { isActive: false },
+        after: { isActive: true },
+      });
+
+      return updated;
     });
   },
 
@@ -481,6 +511,82 @@ export const usersRepository = {
         state: data.state ?? null,
       };
 
+      const currentUser = await tx.user.findUnique({
+        where: { id },
+        select: {
+          fullName: true,
+          email: true,
+          phone: true,
+          zipCode: true,
+          streetAddress: true,
+          number: true,
+          additionalInfo: true,
+          neighborhood: true,
+          addressCity: true,
+          state: true,
+          roles: {
+            where: { isActive: true },
+            select: {
+              roleId: true,
+              scopeMode: true,
+              facilities: { select: { facilityId: true } },
+              permissions: { select: { permissionId: true } },
+            },
+          },
+        },
+      });
+
+      const currentRoles = (currentUser?.roles ?? [])
+        .map((r) => ({
+          roleId: r.roleId,
+          scopeMode: r.scopeMode,
+          facilities: r.facilities.map((f) => f.facilityId).sort(),
+          permissionIds: r.permissions.map((p) => p.permissionId).sort(),
+        }))
+        .sort((a, b) => a.roleId.localeCompare(b.roleId));
+
+      const newRoles = (data.roles ?? [])
+        .map((r) => ({
+          roleId: r.roleId,
+          scopeMode: r.facilities && r.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL",
+          facilities: (r.facilities ?? []).sort(),
+          permissionIds: (r.permissionIds ?? []).sort(),
+        }))
+        .sort((a, b) => a.roleId.localeCompare(b.roleId));
+
+      const auditCurrentFields: Record<string, unknown> = {
+        fullName: currentUser?.fullName ?? null,
+        email: currentUser?.email ?? null,
+        phone: currentUser?.phone ?? null,
+        zipCode: currentUser?.zipCode ?? null,
+        streetAddress: currentUser?.streetAddress ?? null,
+        number: currentUser?.number ?? null,
+        additionalInfo: currentUser?.additionalInfo ?? null,
+        neighborhood: currentUser?.neighborhood ?? null,
+        addressCity: currentUser?.addressCity ?? null,
+        state: currentUser?.state ?? null,
+        roles: currentRoles,
+      };
+
+      const auditNewFields: Record<string, unknown> = {
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone ?? null,
+        zipCode: data.zipCode ?? null,
+        streetAddress: data.streetAddress ?? null,
+        number: data.number ?? null,
+        additionalInfo: data.additionalInfo ?? null,
+        neighborhood: data.neighborhood ?? null,
+        addressCity: data.addressCity ?? null,
+        state: data.state ?? null,
+        roles: newRoles,
+      };
+
+      const { before: deltaBefore, after: deltaAfter } = getDelta(
+        auditCurrentFields,
+        auditNewFields
+      );
+
       const isTargetRoot = await tx.userRole.findFirst({
         where: {
           userId: id,
@@ -503,6 +609,16 @@ export const usersRepository = {
         await tx.user.update({
           where: { id: id },
           data: basicDataUpdate,
+        });
+
+        await auditService.record({
+          tx,
+          entity: AuditEntity.User,
+          entityId: id,
+          entityName: data.fullName,
+          action: AuditAction.USER_ACCOUNT_UPDATED,
+          before: Object.keys(deltaBefore).length > 0 ? deltaBefore : null,
+          after: Object.keys(deltaAfter).length > 0 ? deltaAfter : null,
         });
 
         return { message: "Apenas os Dados Pessoais, Endereço e Documentação foram atualizados." };
@@ -576,42 +692,101 @@ export const usersRepository = {
         });
       }
 
+      const hasPermissionsOrRolesChanged =
+        deltaBefore.roles !== undefined || deltaAfter.roles !== undefined;
+
+      const auditAction = hasPermissionsOrRolesChanged
+        ? AuditAction.USER_ACCOUNT_UPDATED_WITH_PERMISSIONS
+        : AuditAction.USER_ACCOUNT_UPDATED;
+
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: id,
+        entityName: data.fullName,
+        action: auditAction,
+        before: Object.keys(deltaBefore).length > 0 ? deltaBefore : null,
+        after: Object.keys(deltaAfter).length > 0 ? deltaAfter : null,
+      });
+
       return { message: "Usuário atualizado com sucesso." };
     });
   },
 
   async removeUser(targetId: string, requestMakerId: string) {
-    return await prisma.user.update({
-      where: { id: targetId },
-      data: {
-        isActive: false,
-        isDeleted: true,
-        deletedAt: new Date(),
-        deletedByUserId: requestMakerId,
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: targetId },
+        data: {
+          isActive: false,
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedByUserId: requestMakerId,
+        },
+      });
+
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: targetId,
+        entityName: updated.fullName,
+        action: AuditAction.USER_ACCOUNT_DELETED,
+        before: { isActive: true, isDeleted: false },
+        after: { isActive: false, isDeleted: true },
+      });
+
+      return updated;
     });
   },
 
   async deactivateUser(targetId: string) {
-    return await prisma.user.update({
-      where: { id: targetId },
-      data: {
-        isActive: false,
-        updatedAt: new Date(),
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: targetId },
+        data: {
+          isActive: false,
+          updatedAt: new Date(),
+        },
+      });
+
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: targetId,
+        entityName: updated.fullName,
+        action: AuditAction.USER_ACCOUNT_DEACTIVATED,
+        before: { isActive: true },
+        after: { isActive: false },
+      });
+
+      return updated;
     });
   },
 
   async reactivateUser(targetId: string) {
-    return await prisma.user.update({
-      where: { id: targetId },
-      data: {
-        isActive: true,
-        isDeleted: false,
-        deletedAt: null,
-        deletedByUserId: null,
-        updatedAt: new Date(),
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: targetId },
+        data: {
+          isActive: true,
+          isDeleted: false,
+          deletedAt: null,
+          deletedByUserId: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      await auditService.record({
+        tx,
+        entity: AuditEntity.User,
+        entityId: targetId,
+        entityName: updated.fullName,
+        action: AuditAction.USER_ACCOUNT_ACTIVATED,
+        before: { isActive: false, isDeleted: true },
+        after: { isActive: true, isDeleted: false },
+      });
+
+      return updated;
     });
   },
 };

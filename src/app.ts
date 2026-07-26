@@ -14,6 +14,7 @@ import { permissionsRouter } from "./modules/permissions/permissions.router";
 import { usersRouter } from "./modules/users/users.router";
 import { errorHandler } from "./shared/middleware/errorHandler";
 import { notFoundHandler } from "./shared/middleware/notFound";
+import { requestContextMiddleware } from "./shared/middleware/request-context.middleware";
 
 export function createApp() {
   if (env.SENTRY_DSN) {
@@ -28,6 +29,8 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
+
+  app.use(requestContextMiddleware);
 
   app.use(
     cors({

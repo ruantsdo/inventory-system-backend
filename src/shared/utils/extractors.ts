@@ -34,7 +34,13 @@ export async function extractSession(
   expiresAt?: string | null
 ): Promise<{
   session: AuthSessionOutput;
-  jwtClaims: { roleNames: string[]; permissionNames: string[]; facilitiesNames: string[] };
+  jwtClaims: {
+    userName: string;
+    userEmail: string;
+    roleNames: string[];
+    permissionNames: string[];
+    facilitiesNames: string[];
+  };
 }> {
   const roles: RoleOutput[] = [];
   const facilitiesMap = new Map<string, SessionFacilityOutput>();
@@ -176,6 +182,8 @@ export async function extractSession(
   return {
     session,
     jwtClaims: {
+      userName: user.fullName,
+      userEmail: user.email,
       roleNames: roles.map((r) => r.name),
       permissionNames,
       facilitiesNames: facilities.map((f) => f.name),

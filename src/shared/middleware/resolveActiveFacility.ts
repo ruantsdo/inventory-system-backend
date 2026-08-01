@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
+import { updateRequestContext } from "../context/request-context.store";
 import { prisma } from "../db/prisma";
 import { badRequest, forbidden } from "../errors/AppError";
 import { checkIfSuperUser } from "../utils/verifiers";
@@ -33,6 +34,10 @@ export async function resolveActiveFacility(
 
     if (isSuperUser && facilityId === "ALL") {
       req.user = { ...user, activeFacilityId: facilityId };
+      updateRequestContext({
+        facilityId: undefined,
+        facilityName: "Todas",
+      });
       return next();
     }
 
@@ -51,7 +56,7 @@ export async function resolveActiveFacility(
         isActive: true,
         isDeleted: false,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (!facility) {
@@ -86,7 +91,11 @@ export async function resolveActiveFacility(
       }
     }
 
-    req.user = { ...user, activeFacilityId: facilityId };
+    req.user = { ...user, activeFacilityId: facilityId, activeFacilityName: facility.name };
+    updateRequestContext({
+      facilityId,
+      facilityName: facility.name,
+    });
 
     next();
   } catch (error) {

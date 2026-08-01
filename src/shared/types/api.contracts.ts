@@ -1,3 +1,5 @@
+import type { AuditCategory, AuditSeverity } from "@/generated/prisma/enums";
+
 export type ID = string;
 
 // GEO
@@ -196,4 +198,32 @@ export interface UserEditData {
 
   roles: UserRoleEditDetail[];
   professionalDocuments?: UserProfessionalDocumentPayload[] | undefined;
+}
+
+// AUDITS
+export interface AuditOutput {
+  id: string;
+  origin: string;
+  createdAt: string;
+  action: string;
+  category: AuditCategory;
+  severity: AuditSeverity;
+  facilityName: string;
+  performedByUserName: string;
+}
+
+export interface DetailAuditOutput extends AuditOutput {
+  schemaVersion: string;
+  entity: string;
+  entityId: string;
+  entityName: string;
+  performedByUserId: string;
+  performedByUserEmail: string;
+  performedByRole: string;
+  facilityId: string;
+
+  ip: string;
+  userAgent: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
 }

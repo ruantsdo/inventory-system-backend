@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
+import { auditRouter } from "./modules/audit/audit.router";
 import { authRouter } from "./modules/auth/auth.router";
 import { facilitiesRouter } from "./modules/facilities/facilities.router";
 import { geoRouter } from "./modules/geo/geo.router";
@@ -14,6 +15,7 @@ import { permissionsRouter } from "./modules/permissions/permissions.router";
 import { usersRouter } from "./modules/users/users.router";
 import { errorHandler } from "./shared/middleware/errorHandler";
 import { notFoundHandler } from "./shared/middleware/notFound";
+import { requestContextMiddleware } from "./shared/middleware/request-context.middleware";
 
 export function createApp() {
   if (env.SENTRY_DSN) {
@@ -28,6 +30,8 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
+
+  app.use(requestContextMiddleware);
 
   app.use(
     cors({
@@ -73,6 +77,7 @@ export function createApp() {
   app.use("/api/permissions", permissionsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/facilities", facilitiesRouter);
+  app.use("/api/audits", auditRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

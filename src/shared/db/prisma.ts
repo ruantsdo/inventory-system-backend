@@ -11,4 +11,31 @@ if (!connectionString) {
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 
-export const prisma = new PrismaClient({ adapter });
+const baseClient = new PrismaClient({ adapter });
+
+export const prisma = baseClient.$extends({
+  query: {
+    auditEvent: {
+      async update() {
+        throw new Error(
+          "[AuditService] Operação proibida: a tabela de auditoria é Append-Only. Use auditService.record() para registrar eventos."
+        );
+      },
+      async updateMany() {
+        throw new Error("[AuditService] Operação proibida: a tabela de auditoria é Append-Only.");
+      },
+      async delete() {
+        throw new Error("[AuditService] Operação proibida: a tabela de auditoria é Append-Only.");
+      },
+      async deleteMany() {
+        throw new Error("[AuditService] Operação proibida: a tabela de auditoria é Append-Only.");
+      },
+    },
+  },
+});
+
+export type ExtendedPrismaClient = typeof prisma;
+
+export type ExtendedTransactionClient = Parameters<
+  Parameters<ExtendedPrismaClient["$transaction"]>[0]
+>[0];

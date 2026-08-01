@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
+import { auditRouter } from "./modules/audit/audit.router";
 import { authRouter } from "./modules/auth/auth.router";
 import { facilitiesRouter } from "./modules/facilities/facilities.router";
 import { geoRouter } from "./modules/geo/geo.router";
@@ -76,6 +77,7 @@ export function createApp() {
   app.use("/api/permissions", permissionsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/facilities", facilitiesRouter);
+  app.use("/api/audits", auditRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

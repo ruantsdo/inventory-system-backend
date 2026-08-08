@@ -1,5 +1,8 @@
+import { AuditEntity } from "@/generated/prisma/client";
+import { AuditAction } from "@/shared/audit";
 import { prisma } from "@/shared/db/prisma";
 import { forbidden } from "@/shared/errors/AppError";
+import { recordGovernanceAudit } from "./governanceAudit";
 
 const BYPASS_GOVERNANCE_LEVELS = ["ROOT", "SUPER_ADMIN"] as const;
 
@@ -68,9 +71,17 @@ export async function validateFacilityScope(
     ...unknownIds.map((id) => `ID desconhecido (${id})`),
   ].join(", ");
 
-  throw forbidden(
-    `Você não tem autorização para gerenciar usuários nas seguintes unidades: ${nameList}.`,
-    "Escopo de unidade insuficiente",
-    "UNIT_SCOPE_VIOLATION"
-  );
+  const reason = `Você não tem autorização para gerenciar usuários nas seguintes unidades: ${nameList}.`;
+
+  await recordGovernanceAudit({
+    action: AuditAction.FACILITY_SCOPE_VIOLATION,
+    entity: AuditEntity.Facility,
+    metadata: {
+      callerId,
+      unauthorizedFacilityIds: unauthorizedIds,
+      reason,
+    },
+  });
+
+  throw forbidden(reason, "Escopo de unidade insuficiente", "UNIT_SCOPE_VIOLATION");
 }

@@ -51,6 +51,41 @@ export const AuditMetadataSchemas = {
     movementId: z.string().uuid().optional(),
     reasonForAccess: z.string().optional(),
   }),
+
+  GOVERNANCE_ACCESS_DENIED: z.object({
+    callerLevel: z.string().nullable().optional(),
+    attemptedAction: z.string().optional(),
+    reason: z.string().optional(),
+    code: z.string().optional(),
+  }),
+
+  ROOT_SHIELDING_TRIGGERED: z.object({
+    callerLevel: z.string().nullable().optional(),
+    targetUserId: z.string().optional(),
+    attemptedAction: z.string().optional(),
+    reason: z.string().optional(),
+  }),
+
+  FACILITY_SCOPE_VIOLATION: z.object({
+    callerId: z.string().optional(),
+    unauthorizedFacilityIds: z.array(z.string()).optional(),
+    reason: z.string().optional(),
+  }),
+
+  INSUFFICIENT_GOVERNANCE_LEVEL: z.object({
+    callerLevel: z.string().nullable().optional(),
+    requiredLevel: z.string().optional(),
+    targetLevel: z.string().nullable().optional(),
+    attemptedAction: z.string().optional(),
+    reason: z.string().optional(),
+  }),
+
+  PROTECTED_ROLE_VIOLATION: z.object({
+    callerLevel: z.string().nullable().optional(),
+    roleId: z.string().optional(),
+    attemptedAction: z.string().optional(),
+    reason: z.string().optional(),
+  }),
 } as const;
 
 export type AuditMetadataSchemasType = typeof AuditMetadataSchemas;

@@ -1,19 +1,31 @@
+import { AuditEntity } from "@/generated/prisma/client";
+import { AuditAction } from "@/shared/audit";
 import type { GovernanceLevel } from "../../../../generated/prisma/enums";
 import { forbidden } from "../../../errors/AppError";
 import type { Actions } from "../../../utils/extractors";
+import { recordGovernanceAudit } from "./governanceAudit";
 import { isAtLeast } from "./governanceHelpers";
 
-export function canManageFacility(
+export async function canManageFacility(
   callerLevel: GovernanceLevel | null | undefined,
-  action: Actions
-): void {
+  action: Actions,
+  facilityId?: string
+): Promise<void> {
   if (action === "deactivate" || action === "delete") {
     if (!isAtLeast(callerLevel, "SYSTEM_ADMIN")) {
-      throw forbidden(
-        `Para ${action === "deactivate" ? "desativar" : "excluir"} uma unidade, é necessário nível de governança SYSTEM_ADMIN ou superior.`,
-        "Ação de governança negada",
-        "GOVERNANCE_INSUFFICIENT_LEVEL"
-      );
+      const reason = `Para ${action === "deactivate" ? "desativar" : "excluir"} uma unidade, é necessário nível de governança ADMINISTRADOR DE SISTEMA ou superior.`;
+      await recordGovernanceAudit({
+        action: AuditAction.INSUFFICIENT_GOVERNANCE_LEVEL,
+        entity: AuditEntity.Facility,
+        entityId: facilityId,
+        metadata: {
+          callerLevel: callerLevel ?? null,
+          requiredLevel: "SYSTEM_ADMIN",
+          attemptedAction: action,
+          reason,
+        },
+      });
+      throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
     }
     return;
   }
@@ -27,10 +39,18 @@ export function canManageFacility(
       deactivate: "desativar",
       delete: "excluir",
     };
-    throw forbidden(
-      `Para ${actionLabel[action]} uma unidade, é necessário nível de governança MANAGER ou superior.`,
-      "Ação de governança negada",
-      "GOVERNANCE_INSUFFICIENT_LEVEL"
-    );
+    const reason = `Para ${actionLabel[action]} uma unidade, é necessário nível de governança GERENTE ou superior.`;
+    await recordGovernanceAudit({
+      action: AuditAction.INSUFFICIENT_GOVERNANCE_LEVEL,
+      entity: AuditEntity.Facility,
+      entityId: facilityId,
+      metadata: {
+        callerLevel: callerLevel ?? null,
+        requiredLevel: "MANAGER",
+        attemptedAction: action,
+        reason,
+      },
+    });
+    throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
   }
 }

@@ -1,28 +1,28 @@
 import { AuditOrigin, Prisma } from "@/generated/prisma/client";
 import { getRequestContext } from "../context/request-context.store";
-import type { ExtendedTransactionClient } from "../db/prisma";
+import { type ExtendedPrismaClient, type ExtendedTransactionClient, prisma } from "../db/prisma";
 import type { AuditActionType } from "./audit-actions";
 import { getCategoryForAction } from "./audit-category.map";
 import { validateAuditMetadata } from "./audit-metadata.schemas";
 import { getSeverityForAction } from "./audit-severity.map";
 
 export interface AuditRecordPayload {
-  tx: ExtendedTransactionClient;
+  tx?: ExtendedTransactionClient | ExtendedPrismaClient | null | undefined;
 
   entity: import("@/generated/prisma/client").AuditEntity;
-  entityId?: string;
-  entityName?: string;
+  entityId?: string | null | undefined;
+  entityName?: string | null | undefined;
 
   action: AuditActionType;
 
-  before?: Record<string, unknown> | null;
-  after?: Record<string, unknown> | null;
+  before?: Record<string, unknown> | null | undefined;
+  after?: Record<string, unknown> | null | undefined;
 
-  metadata?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null | undefined;
 
-  correlationId?: string;
+  correlationId?: string | null | undefined;
 
-  origin?: import("@/generated/prisma/client").AuditOrigin;
+  origin?: import("@/generated/prisma/client").AuditOrigin | null | undefined;
 }
 
 export class AuditService {
@@ -53,7 +53,9 @@ export class AuditService {
 
     const origin = payloadOrigin ?? ctx.origin ?? AuditOrigin.SYSTEM;
 
-    await tx.auditEvent.create({
+    const db = tx ?? prisma;
+
+    await db.auditEvent.create({
       data: {
         schemaVersion: 1,
         origin,

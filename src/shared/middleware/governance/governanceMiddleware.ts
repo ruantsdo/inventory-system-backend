@@ -82,7 +82,7 @@ export const governance = {
 
         if (!role) return next(forbidden("Cargo não encontrado.", "Cargo inválido"));
 
-        canAssignRole(callerLevel, role as RoleRow);
+        await canAssignRole(callerLevel, role as RoleRow);
         next();
       } catch (error) {
         next(error);
@@ -109,7 +109,7 @@ export const governance = {
 
         if (!role) return next(forbidden("Cargo não encontrado.", "Cargo inválido"));
 
-        canRemoveRole(callerLevel, role as RoleRow);
+        await canRemoveRole(callerLevel, role as RoleRow);
         next();
       } catch (error) {
         next(error);
@@ -140,7 +140,7 @@ export const governance = {
         ]);
 
         const targetRoles = (targetUserRoles as UserRoleRow[]).map((ur) => ur.role);
-        canManageUser(callerLevel, targetRoles);
+        await canManageUser(callerLevel, targetRoles, targetUserId);
         next();
       } catch (error) {
         next(error);
@@ -167,7 +167,7 @@ export const governance = {
 
         if (!role) return next(forbidden("Cargo não encontrado.", "Cargo inválido"));
 
-        canGrantPermission(callerLevel, role);
+        await canGrantPermission(callerLevel, { ...role, id: roleId });
         next();
       } catch (error) {
         next(error);
@@ -194,7 +194,7 @@ export const governance = {
 
         if (!role) return next(forbidden("Cargo não encontrado.", "Cargo inválido"));
 
-        canRevokePermission(callerLevel, role);
+        await canRevokePermission(callerLevel, { ...role, id: roleId });
         next();
       } catch (error) {
         next(error);
@@ -218,7 +218,7 @@ export const governance = {
         }
 
         const callerLevel = await resolveCallerGovernanceLevel(user.id);
-        canManageFacility(callerLevel, action);
+        await canManageFacility(callerLevel, action);
         next();
       } catch (error) {
         next(error);
@@ -237,7 +237,7 @@ export const governance = {
           return next(forbidden("Modo de escopo não informado.", "Parâmetro ausente"));
 
         const callerLevel = await resolveCallerGovernanceLevel(user.id);
-        canManageScope(callerLevel, scopeMode);
+        await canManageScope(callerLevel, scopeMode);
         next();
       } catch (error) {
         next(error);
@@ -301,7 +301,7 @@ export const governance = {
             const scopeMode =
               userRole.facilities && userRole.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL";
 
-            canManageScope(callerLevel, scopeMode);
+            await canManageScope(callerLevel, scopeMode);
 
             const role = await prisma.role.findUnique({
               where: { id: userRole.roleId },
@@ -311,7 +311,7 @@ export const governance = {
               throw forbidden("Cargo não encontrado.", "Cargo inválido");
             }
 
-            canAssignRole(callerLevel, role);
+            await canAssignRole(callerLevel, { ...role, id: userRole.roleId });
           }
         }
 
@@ -357,7 +357,7 @@ export const governance = {
           },
         });
         const targetRoles = targetUserRoles.map((ur) => ur.role);
-        canManageUser(callerLevel, targetRoles);
+        await canManageUser(callerLevel, targetRoles, targetId);
 
         if (data?.roles) {
           const currentRoles = await prisma.userRole.findMany({
@@ -429,7 +429,7 @@ export const governance = {
             const scopeMode =
               newRole.facilities && newRole.facilities.length > 0 ? "FACILITY_SET" : "GLOBAL";
 
-            canManageScope(callerLevel, scopeMode);
+            await canManageScope(callerLevel, scopeMode);
 
             if (!currentRoleIds.has(newRole.roleId)) {
               const role = await prisma.role.findUnique({
@@ -440,13 +440,13 @@ export const governance = {
                 throw forbidden("Cargo não encontrado.", "Cargo inválido");
               }
 
-              canAssignRole(callerLevel, role);
+              await canAssignRole(callerLevel, { ...role, id: newRole.roleId });
             }
           }
 
           for (const [roleId, current] of currentRoleMap) {
             if (!newRoleIds.has(roleId)) {
-              canRemoveRole(callerLevel, current.role);
+              await canRemoveRole(callerLevel, { ...current.role, id: roleId });
             }
           }
         }
@@ -494,7 +494,7 @@ export const governance = {
           },
         });
         const targetRoles = targetUserRoles.map((ur) => ur.role);
-        canManageUser(callerLevel, targetRoles);
+        await canManageUser(callerLevel, targetRoles, targetId);
 
         next();
       } catch (error) {

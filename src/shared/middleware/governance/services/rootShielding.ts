@@ -1,8 +1,11 @@
+import { AuditEntity } from "@/generated/prisma/client";
+import { AuditAction } from "@/shared/audit";
 import { prisma } from "@/shared/db/prisma";
 import type { CreateUserPayload, UpdateUserPayload } from "@/shared/types/api.contracts";
 import type { GovernanceLevel } from "../../../../generated/prisma/enums";
 import { forbidden } from "../../../errors/AppError";
 import type { Actions } from "../../../utils/extractors";
+import { recordGovernanceAudit } from "./governanceAudit";
 
 export async function rootShielding(
   callerLevel: GovernanceLevel | null | undefined,
@@ -23,27 +26,52 @@ export async function rootShielding(
 
     if (targetIsRoot) {
       if (action === "deactivate" || action === "delete") {
-        throw forbidden(
-          `Não é possível ${action === "deactivate" ? "desativar" : "excluir"} um usuário com nível de governança ROOT.`,
-          "Ação de governança negada",
-          "GOVERNANCE_INSUFFICIENT_LEVEL"
-        );
+        const reason = `Não é possível ${action === "deactivate" ? "desativar" : "excluir"} um usuário com nível de governança ROOT.`;
+        await recordGovernanceAudit({
+          action: AuditAction.ROOT_SHIELDING_TRIGGERED,
+          entity: AuditEntity.User,
+          entityId: targetId,
+          metadata: {
+            callerLevel: callerLevel ?? null,
+            targetUserId: targetId,
+            attemptedAction: action,
+            reason,
+          },
+        });
+        throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
       }
 
       if (callerLevel !== "ROOT") {
-        throw forbidden(
-          "Você não possui privilégios suficientes para editar um usuário com nível de governança ROOT.",
-          "Ação de governança negada",
-          "GOVERNANCE_INSUFFICIENT_LEVEL"
-        );
+        const reason =
+          "Você não possui privilégios suficientes para editar um usuário com nível de governança ROOT.";
+        await recordGovernanceAudit({
+          action: AuditAction.ROOT_SHIELDING_TRIGGERED,
+          entity: AuditEntity.User,
+          entityId: targetId,
+          metadata: {
+            callerLevel: callerLevel ?? null,
+            targetUserId: targetId,
+            attemptedAction: action,
+            reason,
+          },
+        });
+        throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
       }
 
       if (data?.roles) {
-        throw forbidden(
-          "Não é permitido alterar os cargos de um usuário ROOT por esta via.",
-          "Ação de governança negada",
-          "GOVERNANCE_INSUFFICIENT_LEVEL"
-        );
+        const reason = "Não é permitido alterar os cargos de um usuário ROOT por esta via.";
+        await recordGovernanceAudit({
+          action: AuditAction.ROOT_SHIELDING_TRIGGERED,
+          entity: AuditEntity.User,
+          entityId: targetId,
+          metadata: {
+            callerLevel: callerLevel ?? null,
+            targetUserId: targetId,
+            attemptedAction: action,
+            reason,
+          },
+        });
+        throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
       }
     }
   }
@@ -55,11 +83,20 @@ export async function rootShielding(
       });
 
       if (roleData?.governanceLevel === "ROOT" && callerLevel !== "ROOT") {
-        throw forbidden(
-          "Você não possui privilégios suficientes para associar o cargo ROOT a este usuário.",
-          "Ação de governança negada",
-          "GOVERNANCE_INSUFFICIENT_LEVEL"
-        );
+        const reason =
+          "Você não possui privilégios suficientes para associar o cargo ROOT a este usuário.";
+        await recordGovernanceAudit({
+          action: AuditAction.ROOT_SHIELDING_TRIGGERED,
+          entity: AuditEntity.Role,
+          entityId: role.roleId,
+          metadata: {
+            callerLevel: callerLevel ?? null,
+            targetUserId: targetId ?? undefined,
+            attemptedAction: action,
+            reason,
+          },
+        });
+        throw forbidden(reason, "Ação de governança negada", "GOVERNANCE_INSUFFICIENT_LEVEL");
       }
     }
   }
